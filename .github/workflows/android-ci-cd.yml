@@ -224,13 +224,13 @@ jobs:
       contents: write
     steps:
       - name: Download Release Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: thai-car-obd2-pro-release-artifacts
           path: release-assets
 
       - name: Download Debug APK Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: thai-car-obd2-pro-debug-apk
           path: release-assets
