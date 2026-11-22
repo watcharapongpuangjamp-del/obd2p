@@ -7,4 +7,15 @@
     <string name="adapter_grant_bt_permission">GRANT BLUETOOTH PERMISSION</string>
     <string name="adapter_grant_usb_permission">GRANT USB PERMISSION</string>
     <string name="standard_pid_probe">STANDARD PID PROBE (SERVICE 01)</string>
+    <string name="realtime_chart_title">REAL-TIME TELEMETRY STREAM</string>
+    <string name="realtime_chart_collecting">Collecting validated PID samples from ECU...</string>
+    <string name="realtime_chart_paused">Polling paused. Resume stream to update live chart.</string>
+    <string name="realtime_chart_unsupported">PID %1$s is marked UNSUPPORTED by ECU bitmask.</string>
+    <string name="dtc_lookup_title">DTC LOOKUP &amp; KNOWLEDGE BASE</string>
+    <string name="dtc_lookup_hint">Enter DTC (e.g. P0171, P0420, U0100)</string>
+    <string name="dtc_lookup_action">LOOKUP</string>
+    <string name="dtc_inspect_evidence">Inspect Evidence</string>
+    <string name="dtc_open_resource">Open Guide</string>
+    <string name="evidence_detail_title">PROTOCOL EVIDENCE PACKET</string>
+    <string name="evidence_view_all_tab">OPEN EVIDENCE LOG</string>
 </resources>

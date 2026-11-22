@@ -17,6 +17,7 @@ import com.example.ui.DiagnosticTab
 import com.example.ui.DiagnosticViewModel
 import com.example.ui.MainBottomNavigation
 import com.example.ui.components.AdapterConnectionDialog
+import com.example.ui.components.EvidenceDetailDialog
 import com.example.ui.tabs.AiMechanicTab
 import com.example.ui.tabs.DashboardTab
 import com.example.ui.tabs.DtcScanTab
@@ -56,6 +57,7 @@ class MainActivity : ComponentActivity() {
                 uiState = uiState,
                 onOpenAdapterManager = { viewModel.setAdapterSheetVisible(true) },
                 onTogglePolling = { viewModel.toggleTelemetryPolling() },
+                onSelectChartPid = { pidHex -> viewModel.selectChartPid(pidHex) },
                 modifier = Modifier.padding(innerPadding)
               )
             }
@@ -67,8 +69,20 @@ class MainActivity : ComponentActivity() {
                 onConfirmClear = { viewModel.executeClearTroubleCodes() },
                 onDismissConfirmDialog = { viewModel.dismissClearConfirmDialog() },
                 onDismissClearResult = { viewModel.dismissClearResult() },
-                onEvidenceClick = {
-                  viewModel.selectTab(DiagnosticTab.EVIDENCE_LOG)
+                onLookupQueryChange = { query -> viewModel.updateDtcLookupQuery(query) },
+                onLookupSubmit = { viewModel.lookupDtc() },
+                onLookupSuggestionClick = { code -> viewModel.lookupDtc(code) },
+                onClearLookup = { viewModel.clearDtcLookup() },
+                onInspectDtcEvidence = { dtc ->
+                  viewModel.inspectEvidenceByRef(
+                    evidenceRef = dtc.evidenceRef,
+                    fallbackCode = dtc.code,
+                    fallbackEcuId = dtc.ecuId,
+                    fallbackRawHex = dtc.rawHex
+                  )
+                },
+                onEvidenceClick = { evidenceRef ->
+                  viewModel.inspectEvidenceByRef(evidenceRef = evidenceRef)
                 },
                 modifier = Modifier.padding(innerPadding)
               )
@@ -119,6 +133,15 @@ class MainActivity : ComponentActivity() {
               onRequestStandardPid = { pidHex ->
                 viewModel.requestStandardPid(pidHex)
               }
+            )
+          }
+
+          val activeEvidence = uiState.selectedEvidence
+          if (uiState.isEvidenceDialogVisible && activeEvidence != null) {
+            EvidenceDetailDialog(
+              evidence = activeEvidence,
+              onDismiss = { viewModel.dismissEvidenceDialog() },
+              onOpenEvidenceTab = { viewModel.selectTab(DiagnosticTab.EVIDENCE_LOG) }
             )
           }
         }

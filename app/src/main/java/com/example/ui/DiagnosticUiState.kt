@@ -4,14 +4,17 @@ import com.example.core.elm327.AdapterDeviceInfo
 import com.example.core.elm327.AdapterType
 import com.example.core.elm327.StandardPidResult
 import com.example.core.model.AiDiagnosticReport
-import com.example.core.model.DataProvenance
 import com.example.core.model.DeterministicFinding
 import com.example.core.model.DtcClearResult
+import com.example.core.model.DtcLookupResult
 import com.example.core.model.DtcScanResult
 import com.example.core.model.EcuInfo
 import com.example.core.model.EvidenceLog
 import com.example.core.model.TelemetryPoint
+import com.example.core.model.ValidatedDiagnosticSnapshot
 import com.example.core.model.VehicleProfile
+import com.example.core.protocol.DtcKnowledgeBase
+import com.example.core.protocol.DtcKnowledgeEntry
 import com.example.core.transport.TransportState
 import com.example.data.local.DiagnosticSessionEntity
 
@@ -41,12 +44,18 @@ data class DiagnosticUiState(
     val isPolling: Boolean = false,
     val averageLatencyMs: Long = 32L,
     val telemetryMap: Map<String, TelemetryPoint> = emptyMap(),
+    val validatedSnapshot: ValidatedDiagnosticSnapshot = ValidatedDiagnosticSnapshot(),
+    val selectedChartPid: String = "0C",
     val lastStandardPidResult: StandardPidResult? = null,
     val dtcScanResult: DtcScanResult = DtcScanResult(),
     val isDtcScanning: Boolean = false,
     val isDtcClearing: Boolean = false,
     val lastClearResult: DtcClearResult? = null,
     val isClearConfirmDialogVisible: Boolean = false,
+    val dtcLookupQuery: String = "",
+    val dtcLookupResult: DtcLookupResult? = null,
+    val dtcLookupError: String? = null,
+    val dtcSuggestions: List<DtcKnowledgeEntry> = DtcKnowledgeBase.searchSuggestions("", 6),
     val ruleFindings: List<DeterministicFinding> = emptyList(),
     val aiReport: AiDiagnosticReport? = null,
     val isAiGenerating: Boolean = false,

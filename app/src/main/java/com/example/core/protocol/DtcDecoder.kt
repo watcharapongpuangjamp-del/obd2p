@@ -13,121 +13,11 @@ import java.security.MessageDigest
 
 object DtcDecoder {
 
-    data class DtcKnowledge(
-        val code: String,
-        val system: String,
-        val thaiTitle: String,
-        val thaiExplanation: String,
-        val englishDescription: String,
-        val severity: DtcSeverity,
-        val symptomsThai: List<String>,
-        val causesThai: List<String>
-    )
-
-    private val DTC_DATABASE: Map<String, DtcKnowledge> = listOf(
-        DtcKnowledge(
-            code = "P0171",
-            system = "Powertrain (Fuel & Air Metering)",
-            thaiTitle = "ส่วนผสมบางเกินไป (System Too Lean Bank 1)",
-            thaiExplanation = "กล่อง ECU ตรวจพบว่าอัตราส่วนอากาศต่อน้ำมันมีออกซิเจนมากเกินไป (น้ำมันจ่ายไม่พอ หรือมีอากาศรั่วเข้าท่อร่วมไอดี)",
-            englishDescription = "Fuel Trim System Lean (Bank 1)",
-            severity = DtcSeverity.HIGH,
-            symptomsThai = listOf("เครื่องยนต์เดินสะดุดตอนเดินเบา", "อัตราเร่งวูบหน่วง", "ไฟ Check Engine โชว์"),
-            causesThai = listOf("เซนเซอร์ MAF สกปรก", "ท่อยางแวคคั่มรั่ว", "ปั๊มติ๊กแรงดันตก", "กรองเบนซินอุดตัน")
-        ),
-        DtcKnowledge(
-            code = "P0300",
-            system = "Powertrain (Ignition / Misfire)",
-            thaiTitle = "การจุดระเบิดผิดพลาดหลายสูบ (Random/Multiple Cylinder Misfire)",
-            thaiExplanation = "ตรวจพบกระบอกสูบหลายสูบเกิดการจุดระเบิดไม่สมบูรณ์ เสี่ยงต่อความเสียหายของลูกสูบและแคทตาไลติก",
-            englishDescription = "Random/Multiple Cylinder Misfire Detected",
-            severity = DtcSeverity.CRITICAL,
-            symptomsThai = listOf("เครื่องสั่นอย่างรุนแรง", "รถไม่มีกำลัง", "ควันไอเสียมีกลิ่นน้ำมันดิบ"),
-            causesThai = listOf("คอยล์จุดระเบิดเสื่อม", "หัวเทียนบอด/ห่าง", "หัวฉีดตัน", "กำลังอัดกระบอกสูบต่ำ")
-        ),
-        DtcKnowledge(
-            code = "P0420",
-            system = "Powertrain (Emissions)",
-            thaiTitle = "ประสิทธิภาพแคทตาไลติกต่ำกว่าเกณฑ์ (Catalyst Efficiency Below Threshold)",
-            thaiExplanation = "ตัวกรองไอเสีย (Catalytic Converter) ฟอกไอเสียได้ไม่ถึงมาตรฐาน มักเกิดจากแคทตันหรือเสื่อมสภาพ",
-            englishDescription = "Catalyst System Efficiency Below Threshold (Bank 1)",
-            severity = DtcSeverity.MEDIUM,
-            symptomsThai = listOf("ไฟรูปเครื่องติดค้าง", "กลิ่นไอเสียเหม็นฉุน", "อัตราเร่งตื้อเล็กน้อย"),
-            causesThai = listOf("แคทตาไลติกเสื่อมสภาพ", "เซนเซอร์ O2 ตัวล่าง (Downstream) ชำรุด", "ท่อไอเสียรั่วก่อนถึงแคท")
-        ),
-        DtcKnowledge(
-            code = "P0401",
-            system = "Powertrain (EGR Exhaust Recirculation)",
-            thaiTitle = "การไหลเวียนไอเสีย EGR ต่ำเกินไป (EGR Flow Insufficient)",
-            thaiExplanation = "วาล์ว EGR หรือท่อทางเดินไอเสียมีเขม่าคราบน้ำมันเกาะอุดตัน ทำให้ไอเสียไม่สามารถวนกลับมาเผาไหม้ได้ (เจอบ่อยในกระบะดีเซล Toyota Revo / Isuzu D-Max)",
-            englishDescription = "Exhaust Gas Recirculation (EGR) Flow Insufficient Detected",
-            severity = DtcSeverity.HIGH,
-            symptomsThai = listOf("เครื่องยนต์เขกขณะเร่ง", "ควันดำเพิ่มขึ้น", "กินน้ำมัน"),
-            causesThai = listOf("คราบเขม่าคาร์บอนตันในวาล์ว EGR", "ท่อแป๊บ EGR อุดตัน", "มอเตอร์ไฟฟ้าคุม EGR เสีย")
-        ),
-        DtcKnowledge(
-            code = "P0087",
-            system = "Powertrain (Common-rail Fuel System)",
-            thaiTitle = "แรงดันในรางคอมมอนเรลต่ำเกินไป (Fuel Rail/System Pressure Too Low)",
-            thaiExplanation = "แรงดันน้ำมันดีเซลในรางหัวฉีดต่ำกว่าค่าเป้าหมาย เสี่ยงทำให้เครื่องยนต์ดับกะทันหันขณะแซงหรือขึ้นเขา",
-            englishDescription = "Fuel Rail/System Pressure - Too Low",
-            severity = DtcSeverity.CRITICAL,
-            symptomsThai = listOf("เครื่องยนต์วูบดับขณะเร่งแซง", "สตาร์ทติดยาก", "มีเสียงเขกผิดปกติ"),
-            causesThai = listOf("กรองโซล่าดักน้ำตัน", "SCV Valve (Suction Control Valve) ติดขัด", "ปั๊มแรงดันสูงคอมมอนเรลมีปัญหา")
-        ),
-        DtcKnowledge(
-            code = "P0101",
-            system = "Powertrain (Air Induction)",
-            thaiTitle = "สัญญาณเซนเซอร์แอร์โฟลว์ผิดช่วง (Mass Air Flow Circuit Range/Performance)",
-            thaiExplanation = "สัญญาณวัดปริมาณอากาศจากแอร์โฟลว์ (MAF) ไม่สอดคล้องกับรอบเครื่องยนต์และลิ้นเร่ง",
-            englishDescription = "Mass or Volume Air Flow Circuit Range/Performance",
-            severity = DtcSeverity.HIGH,
-            symptomsThai = listOf("รถออกตัวอืด วิ่งไม่ออก", "รอบเดินเบาสวิงขึ้นลง", "สิ้นเปลืองเชื้อเพลิง"),
-            causesThai = listOf("เซนเซอร์ MAF มีฝุ่นละอองเกาะ", "กรองอากาศอุดตันรุนแรง", "ขั้วปลั๊กเซนเซอร์หลวม/ขาด")
-        ),
-        DtcKnowledge(
-            code = "P0118",
-            system = "Powertrain (Engine Cooling)",
-            thaiTitle = "สัญญาณเซนเซอร์ความร้อนน้ำหล่อเย็นสูงผิดปกติ (ECT Sensor Circuit High)",
-            thaiExplanation = "วงจรเซนเซอร์วัดอุณหภูมิน้ำหล่อเย็นเปิดวงจรหรือหลุด พัดลมหม้อน้ำอาจทำงานตลอดเวลา",
-            englishDescription = "Engine Coolant Temperature Sensor 1 Circuit High",
-            severity = DtcSeverity.HIGH,
-            symptomsThai = listOf("พัดลมหม้อน้ำหมุนสปีดสูงสุดตลอดเวลา", "เกจ์ความร้อนไม่ขึ้นหรือค้าง", "สตาร์ทติดยากตอนเครื่องเย็น"),
-            causesThai = listOf("ปลั๊กเซนเซอร์ ECT หลุด/หัก", "สายไฟขาดใน", "ตัวเซนเซอร์ ECT ชำรุด")
-        ),
-        DtcKnowledge(
-            code = "U0100",
-            system = "Network (CAN Bus Communication)",
-            thaiTitle = "ขาดการสื่อสารกับกล่องควบคุมเครื่องยนต์ ECM/PCM (Lost Comm with ECM)",
-            thaiExplanation = "กล่องควบคุมอื่นในรถ (เช่น TCM เกียร์, ABS, เรือนไมล์) ไม่สามารถสื่อสารผ่านสาย CAN Bus กับกล่องเครื่องยนต์ได้",
-            englishDescription = "Lost Communication with Engine Control Module (ECM/PCM)",
-            severity = DtcSeverity.CRITICAL,
-            symptomsThai = listOf("เกียร์ไม่เปลี่ยนหรือเข้า Safe Mode", "ไฟเตือน ABS/ESP โชว์พร้อมกัน", "เรือนไมล์เข็มตก"),
-            causesThai = listOf("แรงดันแบตเตอรี่ต่ำผิดปกติ", "สาย CAN Bus ขาดหรือช็อต", "ฟิวส์เลี้ยงกล่อง ECU ขาด")
-        ),
-        DtcKnowledge(
-            code = "C0035",
-            system = "Chassis (Braking & ABS)",
-            thaiTitle = "เซนเซอร์ความเร็วล้อหน้าซ้ายขัดข้อง (Left Front Wheel Speed Sensor)",
-            thaiExplanation = "กล่อง ABS ไม่ได้รับสัญญาณความเร็วจากล้อหน้าซ้าย ทำให้ระบบป้องกันล้อล็อก (ABS) และกันลื่น (TCS) ปิดการทำงาน",
-            englishDescription = "Left Front Wheel Speed Sensor Circuit",
-            severity = DtcSeverity.MEDIUM,
-            symptomsThai = listOf("ไฟ ABS และ Traction Control โชว์", "ระบบเบรกยังใช้งานได้แบบธรรมดาไม่มี ABS"),
-            causesThai = listOf("เซนเซอร์ ABS มีคราบโคลน/เศษเหล็กติด", "สายเซนเซอร์ที่ดุมล้อขาด", "ลูกปืนล้อหลวม")
-        ),
-        DtcKnowledge(
-            code = "B1000",
-            system = "Body (Airbag / SRS)",
-            thaiTitle = "กล่องควบคุมระบบถุงลมนิรภัยขัดข้องภายใน (ECU Malfunction)",
-            thaiExplanation = "กล่องควบคุมระบบความปลอดภัย SRS ถุงลมนิรภัยรายงานความผิดปกติภายใน",
-            englishDescription = "Electronic Control Unit (ECU) Performance Malfunction",
-            severity = DtcSeverity.CRITICAL,
-            symptomsThai = listOf("ไฟเตือนถุงลมนิรภัย Airbag โชว์ค้าง"),
-            causesThai = listOf("ไฟกระชากในระบบ", "กล่อง SRS เสื่อมสภาพ", "เคยเกิดอุบัติเหตุชนแล้วยังไม่รีเซ็ต")
-        )
-    ).associateBy { it.code }
-
-    fun decodeDtcResponse(response: ElmResponse, type: DtcType): List<DtcCode> {
+    fun decodeDtcResponse(
+        response: ElmResponse,
+        type: DtcType,
+        evidenceRefOverride: String? = null
+    ): List<DtcCode> {
         if (!response.isSuccess) return emptyList()
 
         val bytes = response.dataBytes
@@ -168,46 +58,15 @@ object DtcDecoder {
             if (b1 != 0 || b2 != 0) {
                 val codeStr = parseDtcBytes(b1, b2)
                 val rawHex = String.format("%02X %02X", b1, b2)
-                val knowledge = DTC_DATABASE[codeStr]
-
-                val dtc = if (knowledge != null) {
-                    DtcCode(
-                        code = codeStr,
-                        type = type,
-                        ecuId = response.ecuHeader,
-                        system = knowledge.system,
-                        thaiTitle = knowledge.thaiTitle,
-                        thaiExplanation = knowledge.thaiExplanation,
-                        englishDescription = knowledge.englishDescription,
-                        severity = knowledge.severity,
-                        symptomsThai = knowledge.symptomsThai,
-                        potentialCausesThai = knowledge.causesThai,
-                        rawHex = rawHex,
-                        evidenceRef = "DTC_EVD_${System.currentTimeMillis()}_$codeStr"
-                    )
-                } else {
-                    val systemPrefix = when (codeStr.first()) {
-                        'P' -> "Powertrain (ระบบขับเคลื่อนและเครื่องยนต์)"
-                        'C' -> "Chassis (ระบบช่วงล่างและเบรก)"
-                        'B' -> "Body (ระบบตัวถังและความปลอดภัย)"
-                        'U' -> "Network (ระบบสื่อสารกล่องควบคุม)"
-                        else -> "General Diagnostic Code"
-                    }
-                    DtcCode(
-                        code = codeStr,
-                        type = type,
-                        ecuId = response.ecuHeader,
-                        system = systemPrefix,
-                        thaiTitle = "รหัสข้อผิดพลาด $codeStr",
-                        thaiExplanation = "ตรวจพบโค้ดแจ้งเตือนความผิดปกติในระบบ $systemPrefix กรุณาตรวจสอบด้วยเครื่องมือสแกนเฉพาะทาง",
-                        englishDescription = "Generic Manufacturer Diagnostic Trouble Code ($codeStr)",
-                        severity = DtcSeverity.HIGH,
-                        symptomsThai = listOf("ไฟ Check Engine โชว์", "อาจมีผลกระทบต่อสมรรถนะของรถ"),
-                        potentialCausesThai = listOf("เซนเซอร์หรืออุปกรณ์ในระบบ $systemPrefix ทำงานบกพร่อง"),
-                        rawHex = rawHex,
-                        evidenceRef = "DTC_EVD_${System.currentTimeMillis()}_$codeStr"
-                    )
-                }
+                val linkedEvidenceRef = evidenceRefOverride
+                    ?: "DTC_EVD_${System.currentTimeMillis()}_$codeStr"
+                val dtc = DtcKnowledgeBase.toDtcCodeModel(
+                    code = codeStr,
+                    type = type,
+                    ecuId = response.ecuHeader.ifBlank { "7E8" },
+                    rawHex = rawHex,
+                    evidenceRef = linkedEvidenceRef
+                )
                 dtcList.add(dtc)
             }
             i += 2

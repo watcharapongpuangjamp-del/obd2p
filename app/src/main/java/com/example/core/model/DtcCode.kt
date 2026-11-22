@@ -14,6 +14,11 @@ enum class DtcSeverity {
     INFO
 }
 
+data class DtcOnlineResource(
+    val label: String,
+    val url: String
+)
+
 data class DtcCode(
     val code: String,
     val type: DtcType,
@@ -25,8 +30,29 @@ data class DtcCode(
     val severity: DtcSeverity,
     val symptomsThai: List<String> = emptyList(),
     val potentialCausesThai: List<String> = emptyList(),
+    val implicationsThai: String = "",
+    val inspectionStepsThai: List<String> = emptyList(),
+    val onlineResources: List<DtcOnlineResource> = emptyList(),
+    val isGenericFallback: Boolean = false,
     val rawHex: String = "",
     val evidenceRef: String = ""
+)
+
+data class DtcLookupResult(
+    val code: String,
+    val isExactLocalMatch: Boolean,
+    val system: String,
+    val thaiTitle: String,
+    val thaiExplanation: String,
+    val englishDescription: String,
+    val implicationsThai: String,
+    val severity: DtcSeverity,
+    val symptomsThai: List<String> = emptyList(),
+    val potentialCausesThai: List<String> = emptyList(),
+    val inspectionStepsThai: List<String> = emptyList(),
+    val onlineResources: List<DtcOnlineResource> = emptyList(),
+    val matchedScannedDtcs: List<DtcCode> = emptyList(),
+    val queriedTimestamp: Long = System.currentTimeMillis()
 )
 
 enum class ScanStatus {
@@ -45,6 +71,7 @@ data class DtcScanResult(
     val modulesFailed: List<String> = emptyList(),
     val errors: List<String> = emptyList(),
     val evidenceRefs: List<String> = emptyList(),
+    val scanEvidenceLogs: List<EvidenceLog> = emptyList(),
     val scanDurationMs: Long = 0L,
     val timestamp: Long = System.currentTimeMillis()
 ) {

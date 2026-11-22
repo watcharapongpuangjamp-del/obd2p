@@ -393,6 +393,10 @@ class Elm327AdapterManager(
             return false
         }
 
+        _adapterVersion.value = _driver.adapterVersion.value
+        _detectedProtocol.value = _driver.detectedProtocol.value
+        _batteryVoltage.value = _driver.batteryVoltage.value
+
         val matchingDevice = _availableAdapters.value.firstOrNull {
             it.type == type && (targetId == null || it.id == targetId)
         }

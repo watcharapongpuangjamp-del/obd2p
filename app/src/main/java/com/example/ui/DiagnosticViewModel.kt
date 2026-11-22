@@ -12,9 +12,11 @@ import com.example.core.elm327.Elm327AdapterManager
 import com.example.core.elm327.IElm327AdapterManager
 import com.example.core.export.IReportExporter
 import com.example.core.export.ReportExporter
+import com.example.core.model.DataQuality
 import com.example.core.model.EvidenceDirection
 import com.example.core.model.EvidenceLog
 import com.example.core.model.VehicleProfile
+import com.example.core.protocol.DtcKnowledgeBase
 import com.example.core.rules.DeterministicDiagnosticRuleEngine
 import com.example.core.rules.IDiagnosticRuleEngine
 import com.example.core.scanner.DtcScanner
@@ -63,6 +65,67 @@ class DiagnosticViewModel(application: Application) : AndroidViewModel(applicati
 
     fun selectTab(tab: DiagnosticTab) {
         _uiState.update { it.copy(currentTab = tab) }
+    }
+
+    fun selectChartPid(pidHex: String) {
+        _uiState.update { it.copy(selectedChartPid = pidHex.uppercase()) }
+    }
+
+    fun updateDtcLookupQuery(query: String) {
+        val suggestions = DtcKnowledgeBase.searchSuggestions(query, limit = 6)
+        _uiState.update {
+            it.copy(
+                dtcLookupQuery = query,
+                dtcSuggestions = suggestions,
+                dtcLookupError = null
+            )
+        }
+    }
+
+    fun lookupDtc(codeOverride: String? = null) {
+        val query = (codeOverride ?: _uiState.value.dtcLookupQuery).trim()
+        if (query.isBlank()) {
+            _uiState.update {
+                it.copy(
+                    dtcLookupError = "กรุณาระบุรหัส DTC เช่น P0171, P0420, U0100",
+                    dtcLookupResult = null
+                )
+            }
+            return
+        }
+
+        val lookupRes = DtcKnowledgeBase.lookupDtc(query, _uiState.value.dtcScanResult)
+        lookupRes.fold(
+            onSuccess = { result ->
+                _uiState.update {
+                    it.copy(
+                        dtcLookupQuery = result.code,
+                        dtcLookupResult = result,
+                        dtcLookupError = null,
+                        dtcSuggestions = DtcKnowledgeBase.searchSuggestions(result.code, limit = 6)
+                    )
+                }
+            },
+            onFailure = { err ->
+                _uiState.update {
+                    it.copy(
+                        dtcLookupError = err.message ?: "รูปแบบรหัส DTC ไม่ถูกต้อง",
+                        dtcLookupResult = null
+                    )
+                }
+            }
+        )
+    }
+
+    fun clearDtcLookup() {
+        _uiState.update {
+            it.copy(
+                dtcLookupQuery = "",
+                dtcLookupResult = null,
+                dtcLookupError = null,
+                dtcSuggestions = DtcKnowledgeBase.searchSuggestions("", limit = 6)
+            )
+        }
     }
 
     fun setAdapterSheetVisible(visible: Boolean) {
@@ -148,7 +211,7 @@ class DiagnosticViewModel(application: Application) : AndroidViewModel(applicati
                     )
                 }
 
-                // Discover ECUs, start live telemetry polling, and perform initial DTC scan
+                // Discover ECUs, start live telemetry polling using ECU supported PIDs, and scan DTCs
                 discoverEcus()
                 startTelemetryPolling()
                 scanDtcs()
@@ -178,6 +241,9 @@ class DiagnosticViewModel(application: Application) : AndroidViewModel(applicati
     fun requestStandardPid(pidHex: String) {
         viewModelScope.launch {
             val result = adapterManager.requestStandardPid(pidHex)
+            if (result.telemetryPoint != null) {
+                scheduler.recordManualTelemetryPoint(result.telemetryPoint)
+            }
             val updatedTelemetry = if (result.telemetryPoint != null) {
                 _uiState.value.telemetryMap.toMutableMap().apply {
                     put(result.pidHex, result.telemetryPoint)
@@ -208,7 +274,11 @@ class DiagnosticViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private fun startTelemetryPolling() {
-        scheduler.startPolling(adapterManager.driver, viewModelScope)
+        scheduler.startPolling(
+            driver = adapterManager.driver,
+            scope = viewModelScope,
+            supportedPids = adapterManager.supportedPids.value
+        )
         _uiState.update { it.copy(isPolling = true) }
     }
 
@@ -217,7 +287,11 @@ class DiagnosticViewModel(application: Application) : AndroidViewModel(applicati
             scheduler.stopPolling()
             _uiState.update { it.copy(isPolling = false) }
         } else {
-            scheduler.startPolling(adapterManager.driver, viewModelScope)
+            scheduler.startPolling(
+                driver = adapterManager.driver,
+                scope = viewModelScope,
+                supportedPids = adapterManager.supportedPids.value
+            )
             _uiState.update { it.copy(isPolling = true) }
         }
     }
@@ -226,10 +300,14 @@ class DiagnosticViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             _uiState.update { it.copy(isDtcScanning = true) }
             val result = dtcScanner.performFullScan(adapterManager.driver)
+            val sessionId = _uiState.value.activeSessionId
             evidenceRepo.recordDtcList(
-                _uiState.value.activeSessionId,
+                sessionId,
                 result.confirmedCodes + result.pendingCodes + result.permanentCodes
             )
+
+            val scanLogs = result.scanEvidenceLogs.map { it.copy(sessionId = sessionId) }
+            val mergedLogs = (scanLogs + _uiState.value.evidenceLogs).take(200)
 
             val rules = ruleEngine.evaluateRules(
                 telemetry = _uiState.value.telemetryMap,
@@ -237,10 +315,16 @@ class DiagnosticViewModel(application: Application) : AndroidViewModel(applicati
                 batteryVoltageStr = adapterManager.batteryVoltage.value
             )
 
+            val refreshedLookup = _uiState.value.dtcLookupResult?.let { current ->
+                DtcKnowledgeBase.lookupDtc(current.code, result).getOrNull()
+            }
+
             _uiState.update {
                 it.copy(
                     dtcScanResult = result,
                     isDtcScanning = false,
+                    evidenceLogs = mergedLogs,
+                    dtcLookupResult = refreshedLookup ?: it.dtcLookupResult,
                     ruleFindings = rules,
                     userNoticeMessage = if (result.totalFaults > 0) "พบรหัสปัญหา ${result.totalFaults} รายการ" else "ไม่พบรหัสข้อผิดพลาด (0 Faults)"
                 )
@@ -313,19 +397,24 @@ class DiagnosticViewModel(application: Application) : AndroidViewModel(applicati
             }
 
             val updatedLogs = (listOf(ev) + _uiState.value.evidenceLogs).take(200)
+            val refreshedScan = dtcScanner.scanResult.value
+            val refreshedLookup = _uiState.value.dtcLookupResult?.let { current ->
+                DtcKnowledgeBase.lookupDtc(current.code, refreshedScan).getOrNull()
+            }
 
             val rules = ruleEngine.evaluateRules(
                 telemetry = _uiState.value.telemetryMap,
-                dtcResult = dtcScanner.scanResult.value,
+                dtcResult = refreshedScan,
                 batteryVoltageStr = adapterManager.batteryVoltage.value
             )
 
             _uiState.update {
                 it.copy(
-                    dtcScanResult = dtcScanner.scanResult.value,
+                    dtcScanResult = refreshedScan,
                     isDtcClearing = false,
                     lastClearResult = clearResult,
                     evidenceLogs = updatedLogs,
+                    dtcLookupResult = refreshedLookup ?: it.dtcLookupResult,
                     ruleFindings = rules,
                     userNoticeMessage = if (clearResult.isSuccess) {
                         clearResult.confirmationMessageThai
@@ -412,6 +501,41 @@ class DiagnosticViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun inspectEvidenceByRef(
+        evidenceRef: String,
+        fallbackCode: String = "",
+        fallbackEcuId: String = "7E8",
+        fallbackRawHex: String = ""
+    ) {
+        val state = _uiState.value
+        val matched = state.evidenceLogs.firstOrNull { it.id == evidenceRef }
+            ?: state.dtcScanResult.scanEvidenceLogs.firstOrNull { it.id == evidenceRef }
+            ?: state.evidenceLogs.firstOrNull {
+                fallbackRawHex.isNotBlank() && it.responseText.contains(fallbackRawHex, ignoreCase = true)
+            }
+
+        val resolved = matched ?: EvidenceLog(
+            id = evidenceRef.ifBlank { "EVD_LOOKUP_${System.currentTimeMillis()}" },
+            sessionId = state.activeSessionId,
+            timestamp = state.dtcScanResult.timestamp,
+            direction = EvidenceDirection.RX,
+            rawBytesHex = fallbackRawHex.ifBlank { "N/A" },
+            commandText = "03 / 07 / 0A",
+            responseText = fallbackRawHex.ifBlank { "No cached frame retained" },
+            ecuHeader = fallbackEcuId.ifBlank { "7E8" },
+            latencyMs = state.averageLatencyMs,
+            quality = if (fallbackRawHex.isNotBlank()) DataQuality.VALID else DataQuality.UNAVAILABLE,
+            provenance = adapterManager.driver.getProvenance(),
+            parsedMeaning = if (fallbackCode.isNotBlank()) {
+                "DTC Evidence Link for $fallbackCode (ECU $fallbackEcuId)"
+            } else {
+                "DTC Evidence Reference: $evidenceRef"
+            }
+        )
+
+        showEvidenceDetail(resolved)
+    }
+
     fun dismissEvidenceDialog() {
         _uiState.update {
             it.copy(
@@ -487,7 +611,8 @@ class DiagnosticViewModel(application: Application) : AndroidViewModel(applicati
     private fun observeTelemetry() {
         telemetrySubscriptionJob?.cancel()
         telemetrySubscriptionJob = viewModelScope.launch {
-            scheduler.telemetryMap.collectLatest { telemetry ->
+            scheduler.validatedSnapshot.collectLatest { snapshot ->
+                val telemetry = snapshot.channels.mapValues { it.value.latest }
                 val volt = adapterManager.batteryVoltage.value
                 val rules = ruleEngine.evaluateRules(
                     telemetry = telemetry,
@@ -498,9 +623,11 @@ class DiagnosticViewModel(application: Application) : AndroidViewModel(applicati
                 _uiState.update {
                     it.copy(
                         telemetryMap = telemetry,
+                        validatedSnapshot = snapshot,
                         ruleFindings = rules,
                         batteryVoltage = volt,
-                        averageLatencyMs = scheduler.averageLatencyMs.value
+                        averageLatencyMs = snapshot.averageLatencyMs.takeIf { avg -> avg > 0L }
+                            ?: scheduler.averageLatencyMs.value
                     )
                 }
             }

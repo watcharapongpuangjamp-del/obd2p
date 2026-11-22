@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
@@ -32,14 +31,15 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -47,9 +47,9 @@ import androidx.compose.ui.unit.sp
 import com.example.core.model.DtcClearResult
 import com.example.core.model.DtcClearStatus
 import com.example.core.model.DtcCode
-import com.example.core.model.DtcScanResult
-import com.example.core.model.DtcSeverity
 import com.example.ui.DiagnosticUiState
+import com.example.ui.components.DtcLookupPanel
+import com.example.ui.components.ExpandableDtcCard
 import com.example.ui.theme.CarbonDark
 import com.example.ui.theme.CrimsonAlert
 import com.example.ui.theme.CyberCyan
@@ -68,6 +68,11 @@ fun DtcScanTab(
     onConfirmClear: () -> Unit = {},
     onDismissConfirmDialog: () -> Unit = {},
     onDismissClearResult: () -> Unit = {},
+    onLookupQueryChange: (String) -> Unit = {},
+    onLookupSubmit: () -> Unit = {},
+    onLookupSuggestionClick: (String) -> Unit = {},
+    onClearLookup: () -> Unit = {},
+    onInspectDtcEvidence: (DtcCode) -> Unit = {},
     onEvidenceClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -77,7 +82,7 @@ fun DtcScanTab(
         modifier = modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // Status & Action Bar
         Row(
@@ -105,22 +110,28 @@ fun DtcScanTab(
                 Button(
                     onClick = onScanClick,
                     enabled = !uiState.isDtcScanning && !uiState.isDtcClearing,
-                    colors = ButtonDefaults.buttonColors(containerColor = CyberCyan)
+                    colors = ButtonDefaults.buttonColors(containerColor = CyberCyan),
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .testTag("dtc_scan_button")
                 ) {
-                    Icon(imageVector = Icons.Default.Refresh, contentDescription = "Scan", modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "SCAN")
+                    Icon(imageVector = Icons.Default.Refresh, contentDescription = "Scan DTCs", modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(text = "SCAN", color = CarbonDark, fontWeight = FontWeight.Bold)
                 }
 
                 if (result.totalFaults > 0 || uiState.lastClearResult != null) {
                     Button(
                         onClick = onClearClick,
                         enabled = !uiState.isDtcScanning && !uiState.isDtcClearing,
-                        colors = ButtonDefaults.buttonColors(containerColor = CrimsonAlert)
+                        colors = ButtonDefaults.buttonColors(containerColor = CrimsonAlert),
+                        modifier = Modifier
+                            .minimumInteractiveComponentSize()
+                            .testTag("dtc_clear_button")
                     ) {
-                        Icon(imageVector = Icons.Default.Clear, contentDescription = "Clear", modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "CLEAR")
+                        Icon(imageVector = Icons.Default.Clear, contentDescription = "Clear DTCs", modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(text = "CLEAR", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -134,28 +145,28 @@ fun DtcScanTab(
                     .clip(RoundedCornerShape(8.dp))
                     .background(SurfaceVariantDark)
                     .border(1.dp, CrimsonAlert.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                    .padding(16.dp)
+                    .padding(14.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     CircularProgressIndicator(
                         color = CrimsonAlert,
-                        modifier = Modifier.size(32.dp),
+                        modifier = Modifier.size(28.dp),
                         strokeWidth = 3.dp
                     )
                     Column {
                         Text(
                             text = "Transmitting OBD-II Service 04 (04\\r)...",
                             color = TextPrimaryDark,
-                            fontSize = 14.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
                             text = "Awaiting positive response (44) or ECU status from target modules.",
                             color = TextMutedDark,
-                            fontSize = 12.sp
+                            fontSize = 11.sp
                         )
                     }
                 }
@@ -175,11 +186,11 @@ fun DtcScanTab(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 32.dp),
+                    .padding(vertical = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 CircularProgressIndicator(color = CyberCyan)
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
                 Text(
                     text = "Querying All Modules via ISO 15765-4...",
                     color = TextMutedDark,
@@ -192,108 +203,134 @@ fun DtcScanTab(
                     modifier = Modifier.fillMaxWidth(0.8f)
                 )
             }
-        } else {
+        }
+
+        // Scrollable Fault Overview + DTC Lookup Knowledge Base + Scanned Expandable Fault Cards
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             // Fault Overview Summary
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(SurfaceVariantDark)
-                    .border(1.dp, SurfaceBorderDark, RoundedCornerShape(8.dp))
-                    .padding(16.dp),
-                horizontalArrangement = Arrangement.SpaceAround
-            ) {
-                FaultSummaryBox(title = "CONFIRMED", count = result.confirmedCodes.size, color = CrimsonAlert)
-                FaultSummaryBox(title = "PENDING", count = result.pendingCodes.size, color = HighEnergyAmber)
-                FaultSummaryBox(title = "PERMANENT", count = result.permanentCodes.size, color = TextPrimaryDark)
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(SurfaceVariantDark)
+                        .border(1.dp, SurfaceBorderDark, RoundedCornerShape(8.dp))
+                        .padding(14.dp),
+                    horizontalArrangement = Arrangement.SpaceAround
+                ) {
+                    FaultSummaryBox(title = "CONFIRMED", count = result.confirmedCodes.size, color = CrimsonAlert)
+                    FaultSummaryBox(title = "PENDING", count = result.pendingCodes.size, color = HighEnergyAmber)
+                    FaultSummaryBox(title = "PERMANENT", count = result.permanentCodes.size, color = CyberCyan)
+                }
             }
 
-            // DTC List
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                if (result.totalFaults == 0 && result.timestamp > 0) {
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 32.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = "No Faults",
-                                    tint = NeonEmerald,
-                                    modifier = Modifier.size(48.dp)
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text(
-                                    text = "0 FAULTS DETECTED",
-                                    color = NeonEmerald,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.sp
-                                )
-                                Text(
-                                    text = "DTC memory clear. Diagnostic monitors verified.",
-                                    color = TextMutedDark,
-                                    fontSize = 14.sp
-                                )
-                            }
+            // Local DTC Lookup & Knowledge Base Input
+            item {
+                DtcLookupPanel(
+                    query = uiState.dtcLookupQuery,
+                    suggestions = uiState.dtcSuggestions,
+                    lookupResult = uiState.dtcLookupResult,
+                    lookupError = uiState.dtcLookupError,
+                    onQueryChange = onLookupQueryChange,
+                    onLookupSubmit = onLookupSubmit,
+                    onSuggestionClick = onLookupSuggestionClick,
+                    onClearLookup = onClearLookup,
+                    onInspectEvidence = onInspectDtcEvidence
+                )
+            }
+
+            if (!uiState.isDtcScanning && result.totalFaults == 0 && result.timestamp > 0) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = "No Faults",
+                                tint = NeonEmerald,
+                                modifier = Modifier.size(42.dp)
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = "0 FAULTS DETECTED",
+                                color = NeonEmerald,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.sp
+                            )
+                            Text(
+                                text = "DTC memory clear. Diagnostic monitors verified.",
+                                color = TextMutedDark,
+                                fontSize = 13.sp
+                            )
                         }
                     }
                 }
+            }
 
-                // Confirmed Codes
-                if (result.confirmedCodes.isNotEmpty()) {
-                    item { SectionHeader("CONFIRMED FAULTS (MIL Active)") }
-                    items(result.confirmedCodes) { dtc ->
-                        DtcCard(dtc = dtc, onEvidenceClick = { onEvidenceClick(dtc.evidenceRef) })
-                    }
+            // Confirmed Codes
+            if (result.confirmedCodes.isNotEmpty()) {
+                item { SectionHeader("CONFIRMED FAULTS (Service 03 • MIL Active)") }
+                items(result.confirmedCodes, key = { "CONFIRMED_${it.code}_${it.ecuId}" }) { dtc ->
+                    ExpandableDtcCard(
+                        dtc = dtc,
+                        onInspectEvidence = { onInspectDtcEvidence(dtc) }
+                    )
                 }
+            }
 
-                // Pending Codes
-                if (result.pendingCodes.isNotEmpty()) {
-                    item { SectionHeader("PENDING FAULTS (Awaiting cycle completion)") }
-                    items(result.pendingCodes) { dtc ->
-                        DtcCard(dtc = dtc, onEvidenceClick = { onEvidenceClick(dtc.evidenceRef) })
-                    }
+            // Pending Codes
+            if (result.pendingCodes.isNotEmpty()) {
+                item { SectionHeader("PENDING FAULTS (Service 07 • Awaiting Cycle)") }
+                items(result.pendingCodes, key = { "PENDING_${it.code}_${it.ecuId}" }) { dtc ->
+                    ExpandableDtcCard(
+                        dtc = dtc,
+                        onInspectEvidence = { onInspectDtcEvidence(dtc) }
+                    )
                 }
+            }
 
-                // Permanent Codes
-                if (result.permanentCodes.isNotEmpty()) {
-                    item { SectionHeader("PERMANENT FAULTS (Cannot be cleared manually)") }
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(HighEnergyAmber.copy(alpha = 0.1f))
-                                .border(1.dp, HighEnergyAmber.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
-                                .padding(12.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.Top) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = null,
-                                    tint = HighEnergyAmber,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "รหัสถาวร (Permanent DTCs) เป็นไปตามข้อบังคับ SAE J1979 ไม่สามารถลบได้ด้วยคำสั่ง Service 04 กล่อง ECU จะลบรหัสออกเองโดยอัตโนมัติเมื่อขับขี่ครบ Drive Cycle และไม่พบความผิดปกติซ้ำ",
-                                    color = TextPrimaryDark,
-                                    fontSize = 12.sp,
-                                    lineHeight = 16.sp
-                                )
-                            }
+            // Permanent Codes
+            if (result.permanentCodes.isNotEmpty()) {
+                item { SectionHeader("PERMANENT FAULTS (Service 0A • Drive Cycle Lock)") }
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(HighEnergyAmber.copy(alpha = 0.1f))
+                            .border(1.dp, HighEnergyAmber.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
+                            .padding(12.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.Top) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "Permanent DTC Notice",
+                                tint = HighEnergyAmber,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "รหัสถาวร (Permanent DTCs) เป็นไปตามข้อบังคับ SAE J1979 ไม่สามารถลบได้ด้วยคำสั่ง Service 04 กล่อง ECU จะลบรหัสออกเองโดยอัตโนมัติเมื่อขับขี่ครบ Drive Cycle และไม่พบความผิดปกติซ้ำ",
+                                color = TextPrimaryDark,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp
+                            )
                         }
                     }
-                    items(result.permanentCodes) { dtc ->
-                        DtcCard(dtc = dtc, onEvidenceClick = { onEvidenceClick(dtc.evidenceRef) })
-                    }
+                }
+                items(result.permanentCodes, key = { "PERMANENT_${it.code}_${it.ecuId}" }) { dtc ->
+                    ExpandableDtcCard(
+                        dtc = dtc,
+                        onInspectEvidence = { onInspectDtcEvidence(dtc) }
+                    )
                 }
             }
         }
@@ -306,7 +343,7 @@ fun DtcScanTab(
             icon = {
                 Icon(
                     imageVector = Icons.Default.Warning,
-                    contentDescription = null,
+                    contentDescription = "Clear DTC warning",
                     tint = CrimsonAlert,
                     modifier = Modifier.size(32.dp)
                 )
@@ -346,13 +383,17 @@ fun DtcScanTab(
             confirmButton = {
                 Button(
                     onClick = onConfirmClear,
-                    colors = ButtonDefaults.buttonColors(containerColor = CrimsonAlert)
+                    colors = ButtonDefaults.buttonColors(containerColor = CrimsonAlert),
+                    modifier = Modifier.testTag("confirm_clear_dtc_button")
                 ) {
                     Text("CLEAR CODES", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = onDismissConfirmDialog) {
+                TextButton(
+                    onClick = onDismissConfirmDialog,
+                    modifier = Modifier.testTag("cancel_clear_dtc_button")
+                ) {
                     Text("CANCEL", color = TextMutedDark)
                 }
             },
@@ -394,7 +435,7 @@ private fun ClearResultEvidenceCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = if (result.isSuccess) Icons.Default.CheckCircle else Icons.Default.Warning,
-                        contentDescription = null,
+                        contentDescription = "Clear result status",
                         tint = borderColor,
                         modifier = Modifier.size(20.dp)
                     )
@@ -407,8 +448,11 @@ private fun ClearResultEvidenceCard(
                         letterSpacing = 0.5.sp
                     )
                 }
-                IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
-                    Icon(imageVector = Icons.Default.Close, contentDescription = "Dismiss", tint = TextMutedDark, modifier = Modifier.size(16.dp))
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.minimumInteractiveComponentSize()
+                ) {
+                    Icon(imageVector = Icons.Default.Close, contentDescription = "Dismiss clear result", tint = TextMutedDark, modifier = Modifier.size(16.dp))
                 }
             }
 
@@ -419,7 +463,6 @@ private fun ClearResultEvidenceCard(
                 lineHeight = 18.sp
             )
 
-            // Protocol Evidence Metadata Row
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -447,13 +490,15 @@ private fun ClearResultEvidenceCard(
                 horizontalArrangement = Arrangement.End
             ) {
                 Text(
-                    text = "View in Evidence Log →",
+                    text = "Inspect Evidence →",
                     color = CyberCyan,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier
+                        .testTag("clear_result_inspect_evidence")
+                        .minimumInteractiveComponentSize()
                         .clickable { onEvidenceClick(result.evidenceRef) }
-                        .padding(vertical = 4.dp, horizontal = 6.dp)
+                        .padding(vertical = 6.dp, horizontal = 8.dp)
                 )
             }
         }
@@ -466,7 +511,7 @@ private fun FaultSummaryBox(title: String, count: Int, color: Color) {
         Text(
             text = count.toString(),
             color = if (count > 0) color else TextMutedDark,
-            fontSize = 32.sp,
+            fontSize = 28.sp,
             fontWeight = FontWeight.Bold
         )
         Text(
@@ -487,104 +532,6 @@ private fun SectionHeader(title: String) {
         fontSize = 12.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 1.sp,
-        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+        modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)
     )
-}
-
-@Composable
-private fun DtcCard(
-    dtc: DtcCode,
-    onEvidenceClick: () -> Unit
-) {
-    val (icon, color) = when (dtc.severity) {
-        DtcSeverity.CRITICAL -> Icons.Default.Warning to CrimsonAlert
-        DtcSeverity.HIGH -> Icons.Default.Warning to CrimsonAlert
-        DtcSeverity.MEDIUM -> Icons.Default.Info to HighEnergyAmber
-        DtcSeverity.LOW -> Icons.Default.Info to CyberCyan
-        DtcSeverity.INFO -> Icons.Default.Info to TextMutedDark
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(SurfaceVariantDark)
-            .border(1.dp, SurfaceBorderDark, RoundedCornerShape(8.dp))
-            .clickable { onEvidenceClick() }
-            .padding(16.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = dtc.code,
-                    color = TextPrimaryDark,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-            }
-            Text(
-                text = "ECU: ${dtc.ecuId}",
-                color = TextMutedDark,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = dtc.thaiTitle,
-            color = TextPrimaryDark,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Medium
-        )
-        Text(
-            text = dtc.englishDescription,
-            color = TextMutedDark,
-            fontSize = 14.sp
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = "สาเหตุที่เป็นไปได้:",
-            color = CyberCyan,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold
-        )
-        dtc.potentialCausesThai.take(2).forEach { cause ->
-            Text(
-                text = "• $cause",
-                color = TextMutedDark,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(start = 8.dp, top = 2.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = "System: ${dtc.system}",
-                color = TextMutedDark.copy(alpha = 0.5f),
-                fontSize = 10.sp
-            )
-            Text(
-                text = "View Evidence Log →",
-                color = CyberCyan.copy(alpha = 0.8f),
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-    }
 }
