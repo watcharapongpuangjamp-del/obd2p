@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">Thai Car OBD-II Pro</string>
+    <string name="adapter_manager_title">ELM327 ADAPTER MANAGER</string>
+    <string name="adapter_connect">CONNECT</string>
+    <string name="adapter_disconnect">DISCONNECT</string>
+    <string name="adapter_refresh">REFRESH</string>
+    <string name="adapter_grant_bt_permission">GRANT BLUETOOTH PERMISSION</string>
+    <string name="adapter_grant_usb_permission">GRANT USB PERMISSION</string>
+    <string name="standard_pid_probe">STANDARD PID PROBE (SERVICE 01)</string>
+</resources>

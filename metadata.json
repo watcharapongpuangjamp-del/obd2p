@@ -1,0 +1,6 @@
+{
+  "name": "Thai Car OBD-II Pro",
+  "description": "Professional OBD-II Diagnostic Engine with ELM327 USB/Serial support, real ECU discovery, raw TX/RX evidence logs, deterministic rule engine, and AI-driven analysis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
