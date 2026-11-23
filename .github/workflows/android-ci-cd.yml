@@ -6,6 +6,7 @@ on:
       - main
       - master
       - feature/toyota-tti-phase-1
+      - feature/toyota-tti-phase-3-knowledge-engine
     tags:
       - 'v*'
   pull_request:
@@ -13,6 +14,7 @@ on:
       - main
       - master
       - fix/obd2-core-integrity-phase-1
+      - feature/toyota-tti-phase-1
   workflow_dispatch:
     inputs:
       build_release:
