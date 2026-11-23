@@ -176,7 +176,8 @@ class AdaptivePidScheduler(
             history = _telemetryHistory.value[point.sourcePid].orEmpty(),
             tier = tier,
             isSupportedByEcu = point.quality != DataQuality.UNSUPPORTED,
-            effectiveHz = _pollingFrequencyHz.value / tier.cycleModulo
+            effectiveHz = _pollingFrequencyHz.value / tier.cycleModulo,
+            supportKnown = false
         )
         _validatedSnapshot.value = currentSnap.copy(
             timestamp = System.currentTimeMillis(),
@@ -272,8 +273,9 @@ class AdaptivePidScheduler(
                 latest = pt,
                 history = currentHist[pid].orEmpty(),
                 tier = tier,
-                isSupportedByEcu = supportedPids.isEmpty() || supportedPids.contains(pid),
-                effectiveHz = if (_isRunning.value) hz / tier.cycleModulo else 0.0
+                isSupportedByEcu = supportedPids.contains(pid),
+                effectiveHz = if (_isRunning.value) hz / tier.cycleModulo else 0.0,
+                supportKnown = supportedPids.isNotEmpty()
             )
         }
         _validatedSnapshot.value = ValidatedDiagnosticSnapshot(
