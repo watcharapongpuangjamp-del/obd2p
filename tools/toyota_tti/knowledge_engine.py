@@ -75,11 +75,69 @@ def assess_applicability(evidence_context: dict[str, Any], target: dict[str, Any
     }
 
 
+def assess_catalog_applicability(record: dict[str, Any], target: dict[str, Any]) -> dict[str, Any]:
+    compared: list[str] = []
+    unknown: list[str] = []
+    mismatches: list[str] = []
+    for field in ("model_code", "engine", "year", "region", "language"):
+        wanted = target.get(field)
+        if wanted in (None, ""):
+            continue
+        if field == "engine":
+            values = record.get("engine_codes") or []
+            if not values:
+                unknown.append(field)
+            elif _norm(wanted) in {_norm(item) for item in values}:
+                compared.append(field)
+            else:
+                mismatches.append(field)
+        elif field == "year":
+            try:
+                year = int(str(wanted)[:4])
+                start = int(str(record.get("production_start") or "")[:4])
+                end_raw = str(record.get("production_end") or "")
+                end = int(end_raw[:4]) if end_raw else None
+                if year < start or (end is not None and year > end):
+                    mismatches.append(field)
+                else:
+                    compared.append(field)
+            except (TypeError, ValueError):
+                unknown.append(field)
+        elif field == "region":
+            values = record.get("regions") or []
+            if not values:
+                unknown.append(field)
+            elif _norm(wanted) in {_norm(item) for item in values}:
+                compared.append(field)
+            else:
+                mismatches.append(field)
+        else:
+            actual = record.get(field)
+            if actual in (None, ""):
+                unknown.append(field)
+            elif _norm(actual) == _norm(wanted):
+                compared.append(field)
+            else:
+                mismatches.append(field)
+
+    if mismatches:
+        status = "not_applicable"
+    elif unknown or not all(target.get(f) not in (None, "") for f in REQUIRED_APPLICATION_FIELDS):
+        status = "unconfirmed"
+    else:
+        status = "candidate_match"
+    return {
+        "status": status, "matched_fields": compared, "unknown_fields": unknown,
+        "mismatched_fields": mismatches,
+        "note": "Metadata match only; inspect the linked manual and verify the VIN/application.",
+    }
+
+
 def catalog_candidates(catalog: dict[str, Any], target: dict[str, Any]) -> list[dict[str, Any]]:
     """Return catalog records with no contradictions, preserving ambiguity."""
     results = []
     for record in catalog.get("records", []):
-        match = assess_applicability(record, target)
+        match = assess_catalog_applicability(record, target)
         if match["status"] != "not_applicable":
             results.append({"record": record, "applicability": match})
     return results
