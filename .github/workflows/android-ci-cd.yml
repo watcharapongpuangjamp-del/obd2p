@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - feature/toyota-tti-phase-1
     tags:
       - 'v*'
   pull_request:
