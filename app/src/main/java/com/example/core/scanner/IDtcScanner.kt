@@ -92,7 +92,7 @@ class DtcScanner : IDtcScanner {
         }
 
         val result = DtcScanResult(
-            status = if (successfulServices > 0) ScanStatus.COMPLETED else ScanStatus.FAILED,
+            status = if (successfulServices == services.size) ScanStatus.COMPLETED else ScanStatus.FAILED,
             confirmedCodes = codesByType[DtcType.CONFIRMED].orEmpty(),
             pendingCodes = codesByType[DtcType.PENDING].orEmpty(),
             permanentCodes = codesByType[DtcType.PERMANENT].orEmpty(),
