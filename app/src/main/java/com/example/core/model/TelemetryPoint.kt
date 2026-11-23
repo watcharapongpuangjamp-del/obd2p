@@ -15,7 +15,8 @@ enum class DataProvenance {
     USER_ENTERED,
     HISTORICAL,
     ESTIMATED,
-    AI_INFERRED
+    AI_INFERRED,
+    UNKNOWN
 }
 
 data class TelemetryPoint(
