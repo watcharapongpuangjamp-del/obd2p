@@ -22,9 +22,17 @@ class DeterministicDiagnosticRuleEngine : IDiagnosticRuleEngine {
         batteryVoltageStr: String
     ): List<DeterministicFinding> {
         val findings = mutableListOf<DeterministicFinding>()
+        // A deterministic rule may only consume current, validated measurements.
+        // Stale, unavailable, unsupported, estimated, and unknown-source values
+        // must not be treated as direct sensor evidence.
+        val validTelemetry = telemetry.filterValues { point ->
+            point.quality == com.example.core.model.DataQuality.VALID &&
+                point.provenance == com.example.core.model.DataProvenance.REAL_HARDWARE &&
+                point.value.isFinite()
+        }
 
         // 1. Coolant Temperature Rule (PID 05)
-        val ectPoint = telemetry["05"]
+        val ectPoint = validTelemetry["05"]
         if (ectPoint != null && ectPoint.value > 0) {
             val ect = ectPoint.value
             if (ect >= 110.0) {
@@ -63,8 +71,8 @@ class DeterministicDiagnosticRuleEngine : IDiagnosticRuleEngine {
         }
 
         // 2. Battery & Alternator Charging Rule (PID 42 or ATRV)
-        val voltVal = parseVoltage(batteryVoltageStr, telemetry["42"])
-        val rpmVal = telemetry["0C"]?.value ?: 0.0
+        val voltVal = parseVoltage(batteryVoltageStr, validTelemetry["42"])
+        val rpmVal = validTelemetry["0C"]?.value ?: 0.0
         if (voltVal > 0) {
             if (rpmVal > 600 && voltVal < 12.8) {
                 findings.add(
@@ -77,7 +85,7 @@ class DeterministicDiagnosticRuleEngine : IDiagnosticRuleEngine {
                         descriptionThai = "ตรวจพบแรงดันระบบไฟเพียง ${String.format(Locale.US, "%.1f", voltVal)}V ขณะเครื่องยนต์ทำงาน (เกณฑ์ปกติไดชาร์จ: 13.6V - 14.5V)",
                         descriptionEnglish = "Battery voltage is ${String.format(Locale.US, "%.1f", voltVal)}V while engine is running, indicating alternator failure.",
                         recommendedActionThai = "ตรวจสอบสายพานไดชาร์จและไดชาร์จ (Alternator) เสี่ยงแบตเตอรี่หมดกลางทาง",
-                        evidenceRefs = listOf(telemetry["42"]?.evidenceRefId ?: "EVD_VOLT"),
+                        evidenceRefs = listOf(validTelemetry["42"]?.evidenceRefId ?: "EVD_VOLT"),
                         triggerValue = "${String.format(Locale.US, "%.1f", voltVal)}V",
                         thresholdValue = "13.6V"
                     )
@@ -102,8 +110,8 @@ class DeterministicDiagnosticRuleEngine : IDiagnosticRuleEngine {
         }
 
         // 3. Fuel Trim Anomaly (STFT 06 + LTFT 07)
-        val stft = telemetry["06"]?.value
-        val ltft = telemetry["07"]?.value
+        val stft = validTelemetry["06"]?.value
+        val ltft = validTelemetry["07"]?.value
         if (stft != null && ltft != null) {
             val totalTrim = stft + ltft
             if (totalTrim > 18.0) {
@@ -117,7 +125,7 @@ class DeterministicDiagnosticRuleEngine : IDiagnosticRuleEngine {
                         descriptionThai = "ค่า Fuel Trim รวมสูงถึง ${String.format(Locale.US, "%+.1f", totalTrim)}% ECU ต้องชดเชยการจ่ายน้ำมันเพิ่มขึ้นอย่างมาก",
                         descriptionEnglish = "Total Fuel Trim correction is ${String.format(Locale.US, "%+.1f", totalTrim)}% indicating vacuum leak or fuel delivery restriction.",
                         recommendedActionThai = "ตรวจเช็คหารอยรั่วท่อแวคคั่มไอดี, ล้างแอร์โฟลว์ (MAF), และตรวจวัดแรงดันปั๊มติ๊ก",
-                        evidenceRefs = listOf(telemetry["06"]?.evidenceRefId ?: "EVD_STFT", telemetry["07"]?.evidenceRefId ?: "EVD_LTFT"),
+                        evidenceRefs = listOf(validTelemetry["06"]?.evidenceRefId ?: "EVD_STFT", validTelemetry["07"]?.evidenceRefId ?: "EVD_LTFT"),
                         triggerValue = "${String.format(Locale.US, "%+.1f", totalTrim)}%",
                         thresholdValue = "+15.0%"
                     )
@@ -142,7 +150,7 @@ class DeterministicDiagnosticRuleEngine : IDiagnosticRuleEngine {
         }
 
         // 4. Turbo Boost / MAP Check (PID 0B)
-        val mapPoint = telemetry["0B"]
+        val mapPoint = validTelemetry["0B"]
         if (mapPoint != null && mapPoint.value > 220.0) {
             findings.add(
                 DeterministicFinding(
