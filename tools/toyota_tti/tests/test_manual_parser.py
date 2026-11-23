@@ -57,6 +57,22 @@ class ManualParserTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_manual(path, "N00107", "", {}, "reviewed")
 
+    def test_empty_manual_id_is_rejected(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        path = Path(temp.name) / "sample.txt"
+        path.write_text("DTC P0100", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "manual_id"):
+            parse_manual(path, " ", "", {}, "reviewed")
+
+    def test_empty_rights_note_is_rejected(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        path = Path(temp.name) / "sample.txt"
+        path.write_text("DTC P0100", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "rights_note"):
+            parse_manual(path, "N00107", "", {}, " ")
+
 
 if __name__ == "__main__":
     unittest.main()
