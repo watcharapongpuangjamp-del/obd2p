@@ -266,6 +266,7 @@ class Elm327Driver(
         if (cmd.startsWith("AT")) {
             val isOk = when (cmd) {
                 "ATZ", "ATDP" -> sanitized.isNotBlank()
+                "ATRV" -> sanitized.matches(Regex("""\\d+(\\.\\d+)?V""", RegexOption.IGNORE_CASE))
                 else -> sanitized.equals("OK", ignoreCase = true)
             }
             return ElmResponse(
