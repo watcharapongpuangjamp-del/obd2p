@@ -134,7 +134,7 @@ object DtcDecoder {
             )
         }
 
-        // 2. Check for Positive Response: 0x44 (Service 04 Positive Response) or "44" / "OK"
+        // 2. Only a decoded OBD positive response (0x44) confirms Service 04 acceptance.
         val has44Byte = bytes.contains(0x44)
         if (response.type == ElmResponseType.VALID_DATA && has44Byte) {
             return DtcClearResult(
@@ -144,8 +144,8 @@ object DtcDecoder {
                 cleanPayload = payload,
                 rawHex = if (bytes.isNotEmpty()) bytes.joinToString(" ") { String.format("%02X", it) } else "44",
                 ecuHeader = ecuHeader,
-                confirmationMessageThai = "กล่อง ECU ตอบรับคำสั่งล้างรหัสสำเร็จ (Positive Response: 44) รีเซ็ตไฟ Check Engine (MIL) และหน่วยความจำ DTC เรียบร้อยแล้ว",
-                confirmationMessageEnglish = "ECU acknowledged Service 04 with positive response (44). All DTCs and Freeze Frame memory cleared successfully.",
+                confirmationMessageThai = "กล่อง ECU ตอบรับคำสั่ง Service 04 (Positive Response: 44) แล้ว ควรสแกนใหม่เพื่อยืนยันสถานะรหัสของแต่ละกล่อง",
+                confirmationMessageEnglish = "ECU returned the positive response (44) to Service 04. Re-scan each responding ECU to verify the resulting DTC state.",
                 errorMessageThai = null,
                 errorMessageEnglish = null,
                 negativeResponseCode = null,
