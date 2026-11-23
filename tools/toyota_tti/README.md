@@ -43,3 +43,33 @@ Phase 2 can inspect selected documents **one at a time**, after source access an
 ## Rights and source limitations
 
 Public accessibility does not establish permission to copy, store, redistribute, or commercially use manual contents. This phase stores index metadata and links only. Review the source terms and rights for each document before adding document content to any distributable product.
+
+
+## Phase 2 — Local manual evidence extraction
+
+Phase 2 adds a **single-file, local-only parser**. It supports HTML/HTM, XML, text, and text-based PDF files. It does not fetch the URL supplied in `--source-url`, crawl a manual, or download linked pages.
+
+Install dependencies:
+
+```bash
+python -m pip install -r tools/toyota_tti/requirements.txt
+```
+
+Example (the input file must already be lawfully available locally):
+
+```bash
+python tools/toyota_tti/manual_parser.py \
+  --input ./authorized-manual/sample.html \
+  --out build/toyota-tti/evidence-N00107.json \
+  --manual-id N00107 \
+  --source-url "https://example.invalid/reference" \
+  --model Hilux --model-code GUN126 --engine 1GD-FTV \
+  --year 2020 --region Thailand --language English \
+  --rights-note "Access and intended processing reviewed for this local copy."
+```
+
+The parser records a SHA-256 fingerprint, manual ID, optional vehicle context, extraction timestamp, section/page locators, headings, and short excerpts for candidate DTC/measurement references. Candidate evidence is explicitly marked `candidate_unverified`; it is not a diagnosis, specification approval, repair instruction, or confirmation that the document applies to the connected vehicle.
+
+PDF pages without embedded text are reported as having no extractable text; OCR is not performed. Wiring diagrams and images are not interpreted in this phase. Review each extracted candidate against the complete original page and the exact vehicle application before it is used by OBD2P.
+
+The `--rights-note` is an operator-supplied audit note, not a legal determination or a permission grant. The parser processes one local file per invocation and does not automate acquisition of manuals.
