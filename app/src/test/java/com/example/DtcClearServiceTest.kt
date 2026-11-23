@@ -41,7 +41,7 @@ class DtcClearServiceTest {
         assertEquals("EVD_TEST_001", result.evidenceRef)
         assertTrue(result.sha256Hash.isNotBlank())
         assertTrue(result.confirmationMessageThai.contains("สำเร็จ"))
-        assertTrue(result.confirmationMessageEnglish.contains("cleared successfully"))
+        assertTrue(result.confirmationMessageEnglish.contains("positive response (44)"))
     }
 
     @Test
