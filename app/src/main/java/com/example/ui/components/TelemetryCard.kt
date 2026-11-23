@@ -152,7 +152,7 @@ fun TelemetryCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "PID ${telemetry.sourcePid} • ${telemetry.sourceEcuId.ifBlank { "7E8" }}",
+                text = "PID ${telemetry.sourcePid} • ${telemetry.sourceEcuId.ifBlank { "UNKNOWN" }}",
                 color = TextMutedDark.copy(alpha = 0.8f),
                 fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace
