@@ -7,6 +7,8 @@ on:
       - master
       - feature/toyota-tti-phase-1
       - feature/toyota-tti-phase-3-knowledge-engine
+      - feature/toyota-tti-phase-3-knowledge-engine
+      - feature/toyota-tti-phase-4-diagnostic-intelligence
     tags:
       - 'v*'
   pull_request:
