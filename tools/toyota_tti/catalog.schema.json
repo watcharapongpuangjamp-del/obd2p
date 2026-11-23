@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://obd2p.local/schemas/toyota-manual-catalog-1.0.0.json",
+  "title": "OBD2P Toyota Manual Metadata Catalog",
+  "type": "object",
+  "required": ["schema_version", "source", "captured_at", "source_html_sha256", "record_count", "records"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "source": {"type": "string", "format": "uri"},
+    "captured_at": {"type": "string", "format": "date-time"},
+    "source_html_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "record_count": {"type": "integer", "minimum": 1},
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["record_id", "model", "model_code", "engine_codes", "production_start", "production_end", "regions", "language", "manual_id", "manual_format", "manual_url", "download_url", "source_url", "captured_at"],
+        "properties": {
+          "record_id": {"type": "string", "pattern": "^[a-f0-9]{20}$"},
+          "model": {"type": "string", "minLength": 1},
+          "model_code": {"type": "string"},
+          "engine_codes": {"type": "array", "items": {"type": "string"}},
+          "production_start": {"type": "string"},
+          "production_end": {"type": "string"},
+          "regions": {"type": "array", "items": {"type": "string"}},
+          "language": {"type": "string"},
+          "manual_id": {"type": "string"},
+          "manual_format": {"type": "string"},
+          "manual_url": {"type": "string"},
+          "download_url": {"type": "string"},
+          "source_url": {"type": "string", "format": "uri"},
+          "captured_at": {"type": "string", "format": "date-time"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
