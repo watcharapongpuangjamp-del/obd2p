@@ -7,7 +7,7 @@ import com.example.core.model.TelemetryPoint
 import java.util.Locale
 
 enum class ToyotaApplicabilityStatus { CANDIDATE_MATCH, UNCONFIRMED, NOT_APPLICABLE }
-enum class ToyotaCorrelationConfidence { LOW, MEDIUM }
+enum class ToyotaEvidenceCoverage { DTC_ONLY, DTC_PLUS_TELEMETRY }
 
 data class ToyotaVehicleApplication(
     val modelCode: String, val engineCode: String, val productionYear: Int, val region: String = ""
@@ -29,7 +29,7 @@ data class ToyotaManualEvidenceMatch(
 
 data class ToyotaDiagnosticCorrelation(
     val dtcCode: String, val dtcType: String,
-    val confidence: ToyotaCorrelationConfidence, val relatedPids: List<String>,
+    val evidenceCoverage: ToyotaEvidenceCoverage, val relatedPids: List<String>,
     val telemetryEvidenceRefs: List<String>, val manualEvidence: List<ToyotaManualEvidenceMatch>,
     val explanationThai: String, val limitations: List<String>
 )
@@ -63,13 +63,13 @@ class ToyotaDiagnosticCorrelator(
                 point?.takeIf { isUsable(it, now) }
             }
             val manualMatches = manualEvidence
-                .filter { it.kind == "dtc_candidate" && it.value.equals(code, true) }
+                .filter { it.kind == "dtc_candidate" && it.value.equals(code, true) && it.manualId.isNotBlank() && it.documentSha256.matches(Regex("^[a-f0-9]{64}$")) && it.extractionStatus == "candidate_unverified" }
                 .map { matchApplication(it, vehicle) }
                 .filter { it.applicability != ToyotaApplicabilityStatus.NOT_APPLICABLE }
 
             ToyotaDiagnosticCorrelation(
                 dtcCode = code, dtcType = dtc.type.name,
-                confidence = if (usablePoints.isNotEmpty()) ToyotaCorrelationConfidence.MEDIUM else ToyotaCorrelationConfidence.LOW,
+                evidenceCoverage = if (usablePoints.isNotEmpty()) ToyotaEvidenceCoverage.DTC_PLUS_TELEMETRY else ToyotaEvidenceCoverage.DTC_ONLY,
                 relatedPids = relatedPids,
                 telemetryEvidenceRefs = usablePoints.map { it.evidenceRefId }.filter { it.isNotBlank() }.distinct(),
                 manualEvidence = manualMatches,
