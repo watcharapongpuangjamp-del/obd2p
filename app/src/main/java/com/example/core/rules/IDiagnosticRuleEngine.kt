@@ -27,7 +27,7 @@ class DeterministicDiagnosticRuleEngine : IDiagnosticRuleEngine {
         // must not be treated as direct sensor evidence.
         val validTelemetry = telemetry.filterValues { point ->
             point.quality == com.example.core.model.DataQuality.VALID &&
-                point.provenance == com.example.core.model.DataProvenance.REAL_HARDWARE &&
+                point.provenance in setOf(\n                    com.example.core.model.DataProvenance.REAL_HARDWARE,\n                    com.example.core.model.DataProvenance.SIMULATOR\n                ) &&
                 point.value.isFinite()
         }
 
