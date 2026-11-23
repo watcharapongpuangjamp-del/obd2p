@@ -11,6 +11,7 @@ on:
     branches:
       - main
       - master
+      - fix/obd2-core-integrity-phase-1
   workflow_dispatch:
     inputs:
       build_release:
@@ -27,6 +28,28 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+
+  verify-toyota-tti:
+    name: Verify Toyota TTI Python Tools
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: tools/toyota_tti/requirements.txt
+
+      - name: Install TTI dependencies
+        run: python -m pip install -r tools/toyota_tti/requirements.txt
+
+      - name: Run Toyota TTI unit tests
+        run: python -m unittest discover -s tools/toyota_tti/tests -t . -v
+
   verify:
     name: Unit Tests & Android Lint
     runs-on: ubuntu-latest
