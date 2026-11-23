@@ -80,6 +80,12 @@ class AdaptivePidScheduler(
         if (_isRunning.value) {
             stopPolling()
         }
+        // Polling is a hardware operation: never start against an uninitialized
+        // adapter or a transport whose provenance is unknown/disconnected.
+        if (!driver.isInitialized.value || driver.getProvenance() == com.example.core.model.DataProvenance.UNKNOWN) {
+            _isRunning.value = false
+            return
+        }
         _isRunning.value = true
         loopCounter = 0
 
@@ -95,6 +101,10 @@ class AdaptivePidScheduler(
             val activeSlow = filterSupported(slowPids, supportedPids)
 
             while (isActive && _isRunning.value) {
+                if (!driver.isInitialized.value || driver.getProvenance() == com.example.core.model.DataProvenance.UNKNOWN) {
+                    stopPolling()
+                    break
+                }
                 val cycleStart = System.currentTimeMillis()
                 val pidsToPollThisTurn = mutableListOf<String>()
 
