@@ -22,7 +22,7 @@ data class DtcOnlineResource(
 data class DtcCode(
     val code: String,
     val type: DtcType,
-    val ecuId: String = "7E8",
+    val ecuId: String = "UNKNOWN",
     val system: String = "Powertrain",
     val thaiTitle: String,
     val thaiExplanation: String,
