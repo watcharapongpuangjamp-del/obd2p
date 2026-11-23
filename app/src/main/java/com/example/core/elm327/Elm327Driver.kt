@@ -264,7 +264,10 @@ class Elm327Driver(
         }
 
         if (cmd.startsWith("AT")) {
-            val isOk = when (cmd) {\n                "ATZ", "ATDP" -> sanitized.isNotBlank()\n                else -> sanitized.equals("OK", ignoreCase = true)\n            }
+            val isOk = when (cmd) {
+                "ATZ", "ATDP" -> sanitized.isNotBlank()
+                else -> sanitized.equals("OK", ignoreCase = true)
+            }
             return ElmResponse(
                 type = if (isOk) ElmResponseType.OK_RESPONSE else ElmResponseType.UNKNOWN_ERROR,
                 rawResponse = raw,
