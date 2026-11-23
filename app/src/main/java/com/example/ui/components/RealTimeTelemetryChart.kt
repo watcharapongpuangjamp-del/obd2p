@@ -290,7 +290,7 @@ fun RealTimeTelemetryChart(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "ECU: ${channel?.latest?.sourceEcuId?.ifBlank { "7E8" } ?: "---"} • ${
+                text = "ECU: ${channel?.latest?.sourceEcuId?.ifBlank { "UNKNOWN" } ?: "---"} • ${
                     formatTelemetryTimestamp(channel?.latest?.timestamp ?: snapshot.timestamp)
                 }",
                 color = TextMutedDark.copy(alpha = 0.85f),
