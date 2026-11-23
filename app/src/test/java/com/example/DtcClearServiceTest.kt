@@ -98,6 +98,10 @@ class DtcClearServiceTest {
         // 1. Initial scan with fault codes present
         val initialScan = scanner.performFullScan(driver)
         assertTrue(initialScan.totalFaults > 0)
+        assertEquals(com.example.core.model.ScanStatus.COMPLETED, initialScan.status)
+        assertTrue(initialScan.modulesScanned.contains("7E8 (ECU identity unverified)"))
+        assertFalse(initialScan.modulesScanned.any { it.contains("7E9") })
+        assertTrue(initialScan.scanEvidenceLogs.all { it.sha256Hash.isNotBlank() })
 
         // 2. Clear DTCs via Service 04
         val clearResult = scanner.clearCodes(driver)
