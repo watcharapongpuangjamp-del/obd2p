@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://obd2p.local/schemas/toyota-manual-evidence-1.0.0.json",
+  "title": "OBD2P Toyota Manual Extracted Evidence",
+  "type": "object",
+  "required": ["schema_version", "document", "vehicle_context", "extraction", "headings", "evidence"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "document": {
+      "type": "object",
+      "required": ["manual_id", "local_filename", "format", "sha256", "byte_length", "extracted_at", "rights_review"],
+      "properties": {
+        "manual_id": {"type": "string", "minLength": 1},
+        "source_url": {"type": "string"},
+        "local_filename": {"type": "string"},
+        "format": {"enum": ["html", "htm", "xml", "pdf", "txt"]},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "byte_length": {"type": "integer", "minimum": 0},
+        "extracted_at": {"type": "string", "format": "date-time"},
+        "rights_review": {
+          "type": "object",
+          "required": ["status", "note"],
+          "properties": {
+            "status": {"const": "user_attested_reviewed"},
+            "note": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "vehicle_context": {"type": "object"},
+    "extraction": {
+      "type": "object",
+      "required": ["status", "block_count", "heading_count", "evidence_count", "limitations"],
+      "properties": {
+        "status": {"enum": ["text_extracted", "no_extractable_text"]},
+        "block_count": {"type": "integer", "minimum": 0},
+        "heading_count": {"type": "integer", "minimum": 0},
+        "evidence_count": {"type": "integer", "minimum": 0},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false
+    },
+    "headings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "locator"],
+        "properties": {"title": {"type": "string"}, "locator": {"type": "string"}},
+        "additionalProperties": false
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["locator", "section", "kind", "value", "excerpt", "extraction_status"],
+        "properties": {
+          "locator": {"type": "string"},
+          "section": {"type": "string"},
+          "kind": {"enum": ["dtc_candidate", "measurement_candidate"]},
+          "value": {"type": "string"},
+          "excerpt": {"type": "string", "maxLength": 280},
+          "extraction_status": {"const": "candidate_unverified"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
