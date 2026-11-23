@@ -11,7 +11,8 @@ Phase 4 adds an isolated Kotlin correlation layer for OBD2P. It combines existin
   - P0101 → PID 10 (MAF) and 04 (calculated engine load)
   - P0115/P0117/P0118/P0128 → PID 05 (coolant temperature)
   - P0087 has no mapped standard PID in this implementation. Do not substitute an unrelated value for Toyota common-rail pressure.
-- Confidence is capped at LOW or MEDIUM. Manual candidates do not raise confidence.
+- Output reports evidence coverage (DTC-only or DTC plus eligible telemetry), not diagnostic confidence or probability. Manual candidates do not increase certainty.
+- Manual candidates are accepted only with a non-empty manual ID, valid SHA-256 fingerprint, and `candidate_unverified` extraction status.
 - Toyota manual evidence is matched against model code, engine code, production-year range, and region. Missing fields stay UNCONFIRMED; known contradictions are excluded.
 - CANDIDATE_MATCH means metadata agrees, not that the manual is verified for the VIN or that extracted content is correct.
 
