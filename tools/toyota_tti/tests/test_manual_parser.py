@@ -29,7 +29,7 @@ class ManualParserTests(unittest.TestCase):
         kinds = {(item["kind"], item["value"], item["extraction_status"]) for item in result["evidence"]}
         self.assertIn(("dtc_candidate", "P0087", "candidate_unverified"), kinds)
         self.assertIn(("measurement_candidate", "35 MPa", "candidate_unverified"), kinds)
-        self.assertIn("pdf", result["extraction"]["limitations"][3])
+        self.assertIn("PDF", result["extraction"]["limitations"][3])
 
     def test_xml_extracts_text_with_element_locator(self):
         result = self.parse_fixture(
