@@ -63,7 +63,7 @@ object DtcDecoder {
                 val dtc = DtcKnowledgeBase.toDtcCodeModel(
                     code = codeStr,
                     type = type,
-                    ecuId = response.ecuHeader.ifBlank { "7E8" },
+                    ecuId = response.ecuHeader.ifBlank { "UNKNOWN" },
                     rawHex = rawHex,
                     evidenceRef = linkedEvidenceRef
                 )
@@ -100,9 +100,10 @@ object DtcDecoder {
         val payload = response.cleanPayload.trim()
         val raw = response.rawResponse
         val bytes = response.dataBytes
-        val ecuHeader = response.ecuHeader.ifBlank { "7E8" }
-        val timestamp = System.currentTimeMillis()
-        val sha256 = calculateHash("04:$raw:$timestamp")
+        val ecuHeader = response.ecuHeader
+        val timestamp = response.rawTxRx?.timestamp ?: System.currentTimeMillis()
+        val rawEvidence = response.rawTxRx?.rawBytes?.takeIf { it.isNotEmpty() } ?: raw.toByteArray(Charsets.US_ASCII)
+        val sha256 = calculateHash(rawEvidence)
 
         // 1. Check for Negative Response Code (NRC): 7F 04 <NRC>
         val nrcIndex = bytes.indexOf(0x7F)
@@ -135,10 +136,7 @@ object DtcDecoder {
 
         // 2. Check for Positive Response: 0x44 (Service 04 Positive Response) or "44" / "OK"
         val has44Byte = bytes.contains(0x44)
-        val has44Token = payload.split("\\s+".toRegex()).any { it.equals("44", ignoreCase = true) }
-        val isOkAck = response.type == ElmResponseType.OK_RESPONSE || payload.equals("OK", ignoreCase = true)
-
-        if (has44Byte || has44Token || isOkAck) {
+        if (response.type == ElmResponseType.VALID_DATA && has44Byte) {
             return DtcClearResult(
                 status = DtcClearStatus.SUCCESS,
                 commandTx = "04",
@@ -222,9 +220,9 @@ object DtcDecoder {
         }
     }
 
-    private fun calculateHash(input: String): String {
+    private fun calculateHash(input: ByteArray): String {
         val md = MessageDigest.getInstance("SHA-256")
-        val digest = md.digest(input.toByteArray())
+        val digest = md.digest(input)
         return digest.fold("") { str, it -> str + "%02x".format(it) }
     }
 }
