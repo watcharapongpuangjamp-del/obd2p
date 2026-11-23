@@ -62,12 +62,11 @@ class KnowledgeEngineTests(unittest.TestCase):
             {"manual_id": "B", "model_code": "GUN126", "engine_codes": ["2GD-FTV"], "production_start": "2019", "production_end": "2021", "regions": ["Thailand"]}
         ]}
         candidates = catalog_candidates(catalog, {"model_code": "GUN126", "engine": "1GD-FTV", "year": "2020", "region": "Thailand"})
-        self.assertEqual(len(candidates), 2)  # catalog schema is not normalized to evidence context; do not infer
-        self.assertTrue(all(item["applicability"]["status"] == "unconfirmed" for item in candidates))
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0]["record"]["manual_id"], "A")
+        self.assertEqual(candidates[0]["applicability"]["status"], "candidate_match")
 
 
-if __ ().__class__ is None:
-    pass
 
 if __name__ == "__main__":
     unittest.main()
