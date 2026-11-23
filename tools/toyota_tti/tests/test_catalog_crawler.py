@@ -39,10 +39,9 @@ class CatalogCrawlerTests(unittest.TestCase):
 
 NINE_COLUMN_SAMPLE = """
 <html><body><table>
-<tr><th>Model</th><th>Model Code</th><th>Engines</th><th>Year</th><th>Year Start</th><th>Year End</th><th>Region</th><th>Language</th><th>Manual</th><th>Download</th></tr>
+<tr><th>Model</th><th>Model Code</th><th>Engines</th><th>Year Start</th><th>Year End</th><th>Region</th><th>Language</th><th>Manual</th><th>Download</th></tr>
 <tr>
-<td>Avanza</td><td>F65#</td><td>K3-VE<br>3SZ-VE</td><td></td>
-<td>2011/11</td><td>2017/09</td><td>Thailand<br>Malaysia</td><td>English</td>
+<td>Avanza</td><td>F65#</td><td>K3-VE<br>3SZ-VE</td><td>2011/11</td><td>2017/09</td><td>Thailand<br>Malaysia</td><td>English</td>
 <td><a href="manual/N00014">N00014</a><br>Web</td>
 <td><a href="download/N00014">Download</a></td>
 </tr>
