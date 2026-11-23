@@ -48,13 +48,13 @@ def parse_years(lines: list[str]) -> tuple[str, str]:
     return (years[0] if years else "", years[1] if len(years) > 1 else "")
 
 
-def extract_manual(cell) -> tuple[str, str, str]:
+def extract_manual(cell, base_url: str) -> tuple[str, str, str]:
     if cell is None:
         return "", "", ""
     anchors = cell.find_all("a", href=True)
     manual_anchor = anchors[0] if anchors else None
     manual_id = manual_anchor.get_text(" ", strip=True) if manual_anchor else ""
-    href = urljoin(DEFAULT_URL, manual_anchor["href"]) if manual_anchor else ""
+    href = urljoin(base_url, manual_anchor["href"]) if manual_anchor else ""
     lines = cell_lines(cell)
     format_name = ""
     for line in lines:
@@ -116,7 +116,7 @@ def parse_index_html(html: str, source_url: str, captured_at: str) -> list[dict]
             regions = values[region_i]
             language = " ".join(values[lang_i])
 
-        manual_id, manual_format, manual_url = extract_manual(cells[manual_i])
+        manual_id, manual_format, manual_url = extract_manual(cells[manual_i], source_url)
         download_anchors = cells[download_i].find_all("a", href=True)
         download_url = urljoin(source_url, download_anchors[0]["href"]) if download_anchors else ""
 
