@@ -41,6 +41,16 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      - name: Set up Android SDK & Accept Licenses
+        uses: android-actions/setup-android@v3
+
+      - name: Accept SDK Licenses & Install API 36.1
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          mkdir -p "$SDK_ROOT/licenses"
+          yes | sdkmanager --sdk_root="$SDK_ROOT" --licenses > /dev/null 2>&1 || true
+          sdkmanager --sdk_root="$SDK_ROOT" "platform-tools" "platforms;android-36.1" "build-tools;36.0.0" || true
+
       - name: Set up Gradle 9.3.1
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -57,7 +67,11 @@ jobs:
           else
             touch .env
           fi
-          base64 -d debug.keystore.base64 > debug.keystore
+          if [ -f debug.keystore.base64 ]; then
+            tr -d '\r\n ' < debug.keystore.base64 | base64 -d > debug.keystore
+          else
+            keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
 
       - name: Run Unit Tests (Debug)
         run: gradle :app:testDebugUnitTest --no-daemon --stacktrace
@@ -91,6 +105,16 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      - name: Set up Android SDK & Accept Licenses
+        uses: android-actions/setup-android@v3
+
+      - name: Accept SDK Licenses & Install API 36.1
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          mkdir -p "$SDK_ROOT/licenses"
+          yes | sdkmanager --sdk_root="$SDK_ROOT" --licenses > /dev/null 2>&1 || true
+          sdkmanager --sdk_root="$SDK_ROOT" "platform-tools" "platforms;android-36.1" "build-tools;36.0.0" || true
+
       - name: Set up Gradle 9.3.1
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -107,7 +131,11 @@ jobs:
           else
             touch .env
           fi
-          base64 -d debug.keystore.base64 > debug.keystore
+          if [ -f debug.keystore.base64 ]; then
+            tr -d '\r\n ' < debug.keystore.base64 | base64 -d > debug.keystore
+          else
+            keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
 
       - name: Assemble Debug APK
         run: gradle :app:assembleDebug --no-daemon --stacktrace
@@ -129,9 +157,7 @@ jobs:
     name: Build Signed Release APK & AAB
     needs: [verify]
     if: >-
-      github.ref == 'refs/heads/main' ||
-      github.ref == 'refs/heads/master' ||
-      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name != 'workflow_dispatch' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/v'))) ||
       (github.event_name == 'workflow_dispatch' && inputs.build_release == true)
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -144,6 +170,16 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
+
+      - name: Set up Android SDK & Accept Licenses
+        uses: android-actions/setup-android@v3
+
+      - name: Accept SDK Licenses & Install API 36.1
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          mkdir -p "$SDK_ROOT/licenses"
+          yes | sdkmanager --sdk_root="$SDK_ROOT" --licenses > /dev/null 2>&1 || true
+          sdkmanager --sdk_root="$SDK_ROOT" "platform-tools" "platforms;android-36.1" "build-tools;36.0.0" || true
 
       - name: Set up Gradle 9.3.1
         uses: gradle/actions/setup-gradle@v4
@@ -165,11 +201,16 @@ jobs:
           else
             touch .env
           fi
-          base64 -d debug.keystore.base64 > debug.keystore
+          if [ -f debug.keystore.base64 ]; then
+            tr -d '\r\n ' < debug.keystore.base64 | base64 -d > debug.keystore
+          else
+            keytool -genkeypair -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
 
           KEYSTORE_FILE="${{ runner.temp }}/release-upload-key.jks"
+          rm -f "$KEYSTORE_FILE"
           if [ -n "$RELEASE_KEYSTORE_BASE64" ] && [ -n "$RELEASE_STORE_PASSWORD" ] && [ -n "$RELEASE_KEY_PASSWORD" ]; then
-            echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_FILE"
+            printf '%s' "$RELEASE_KEYSTORE_BASE64" | tr -d '\r\n ' | base64 -d > "$KEYSTORE_FILE"
             echo "SIGNING_MODE=production" >> "$GITHUB_ENV"
             echo "KEYSTORE_PATH=$KEYSTORE_FILE" >> "$GITHUB_ENV"
             echo "STORE_PASSWORD=$RELEASE_STORE_PASSWORD" >> "$GITHUB_ENV"
@@ -206,7 +247,7 @@ jobs:
           SUFFIX="${SIGNING_MODE}"
           cp app/build/outputs/apk/release/app-release.apk "dist/release/thai-car-obd2-pro-${VERSION_TAG}-${SUFFIX}.apk"
           cp app/build/outputs/bundle/release/app-release.aab "dist/release/thai-car-obd2-pro-${VERSION_TAG}-${SUFFIX}.aab"
-          (cd dist/release && sha256sum * > SHA256SUMS-release.txt)
+          (cd dist/release && sha256sum *.apk *.aab > SHA256SUMS-release.txt)
 
       - name: Upload Release Artifacts
         uses: actions/upload-artifact@v4
