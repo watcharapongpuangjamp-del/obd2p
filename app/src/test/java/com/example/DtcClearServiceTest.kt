@@ -40,8 +40,8 @@ class DtcClearServiceTest {
         assertEquals("7E8", result.ecuHeader)
         assertEquals("EVD_TEST_001", result.evidenceRef)
         assertTrue(result.sha256Hash.isNotBlank())
-        assertTrue(result.confirmationMessageThai.contains("สำเร็จ"))
-        assertTrue(result.confirmationMessageEnglish.contains("cleared successfully"))
+        assertTrue(result.confirmationMessageThai.contains("ตอบรับคำสั่ง Service 04"))
+        assertTrue(result.confirmationMessageEnglish.contains("positive response (44)"))
     }
 
     @Test
@@ -98,6 +98,10 @@ class DtcClearServiceTest {
         // 1. Initial scan with fault codes present
         val initialScan = scanner.performFullScan(driver)
         assertTrue(initialScan.totalFaults > 0)
+        assertEquals(com.example.core.model.ScanStatus.COMPLETED, initialScan.status)
+        assertTrue(initialScan.modulesScanned.contains("7E8 (ECU identity unverified)"))
+        assertFalse(initialScan.modulesScanned.any { it.contains("7E9") })
+        assertTrue(initialScan.scanEvidenceLogs.all { it.sha256Hash.isNotBlank() })
 
         // 2. Clear DTCs via Service 04
         val clearResult = scanner.clearCodes(driver)
@@ -111,8 +115,9 @@ class DtcClearServiceTest {
 
         // 3. Verify scan result state in scanner
         val stateAfterClear = scanner.scanResult.value
-        assertEquals(0, stateAfterClear.confirmedCodes.size)
-        assertEquals(0, stateAfterClear.pendingCodes.size)
+        assertEquals(initialScan.confirmedCodes.size, stateAfterClear.confirmedCodes.size)
+        assertEquals(initialScan.pendingCodes.size, stateAfterClear.pendingCodes.size)
+        assertEquals(initialScan.permanentCodes.size, stateAfterClear.permanentCodes.size)
         assertTrue(stateAfterClear.evidenceRefs.contains(clearResult.evidenceRef))
     }
 }

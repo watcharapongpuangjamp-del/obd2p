@@ -33,6 +33,7 @@ fun ProvenanceBadge(
         DataProvenance.HISTORICAL -> TextMutedDark to "CACHED"
         DataProvenance.ESTIMATED -> HighEnergyAmber to "EST"
         DataProvenance.AI_INFERRED -> CyberCyan to "AI"
+        DataProvenance.UNKNOWN -> TextMutedDark to "UNKNOWN"
     }
 
     Box(

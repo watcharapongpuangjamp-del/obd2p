@@ -43,13 +43,14 @@ jobs:
 
       - name: Set up Android SDK & Accept Licenses
         uses: android-actions/setup-android@v3
+        with:
+          # The legacy "tools" SDK package is no longer published by Google.
+          packages: platform-tools
 
-      - name: Accept SDK Licenses & Install API 36.1
+      - name: Install Android API 36.1 & Build Tools
         run: |
           SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
-          mkdir -p "$SDK_ROOT/licenses"
-          yes | sdkmanager --sdk_root="$SDK_ROOT" --licenses > /dev/null 2>&1 || true
-          sdkmanager --sdk_root="$SDK_ROOT" "platform-tools" "platforms;android-36.1" "build-tools;36.0.0" || true
+          sdkmanager --sdk_root="$SDK_ROOT" "platform-tools" "platforms;android-36.1" "build-tools;36.0.0"
 
       - name: Set up Gradle 9.3.1
         uses: gradle/actions/setup-gradle@v4
@@ -107,13 +108,14 @@ jobs:
 
       - name: Set up Android SDK & Accept Licenses
         uses: android-actions/setup-android@v3
+        with:
+          # The legacy "tools" SDK package is no longer published by Google.
+          packages: platform-tools
 
-      - name: Accept SDK Licenses & Install API 36.1
+      - name: Install Android API 36.1 & Build Tools
         run: |
           SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
-          mkdir -p "$SDK_ROOT/licenses"
-          yes | sdkmanager --sdk_root="$SDK_ROOT" --licenses > /dev/null 2>&1 || true
-          sdkmanager --sdk_root="$SDK_ROOT" "platform-tools" "platforms;android-36.1" "build-tools;36.0.0" || true
+          sdkmanager --sdk_root="$SDK_ROOT" "platform-tools" "platforms;android-36.1" "build-tools;36.0.0"
 
       - name: Set up Gradle 9.3.1
         uses: gradle/actions/setup-gradle@v4
@@ -173,13 +175,14 @@ jobs:
 
       - name: Set up Android SDK & Accept Licenses
         uses: android-actions/setup-android@v3
+        with:
+          # The legacy "tools" SDK package is no longer published by Google.
+          packages: platform-tools
 
-      - name: Accept SDK Licenses & Install API 36.1
+      - name: Install Android API 36.1 & Build Tools
         run: |
           SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
-          mkdir -p "$SDK_ROOT/licenses"
-          yes | sdkmanager --sdk_root="$SDK_ROOT" --licenses > /dev/null 2>&1 || true
-          sdkmanager --sdk_root="$SDK_ROOT" "platform-tools" "platforms;android-36.1" "build-tools;36.0.0" || true
+          sdkmanager --sdk_root="$SDK_ROOT" "platform-tools" "platforms;android-36.1" "build-tools;36.0.0"
 
       - name: Set up Gradle 9.3.1
         uses: gradle/actions/setup-gradle@v4

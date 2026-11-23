@@ -117,7 +117,8 @@ fun RealTimeTelemetryChart(
         ) {
             items(CHART_FEATURED_PIDS) { pid ->
                 val isSelected = pid == selectedPidHex
-                val isSupported = snapshot.supportedPids.isEmpty() || snapshot.supportedPids.contains(pid)
+                val supportKnown = snapshot.supportedPids.isNotEmpty()
+                val isSupported = snapshot.supportedPids.contains(pid)
                 val shortLabel = when (pid) {
                     "0C" -> "RPM (0C)"
                     "0D" -> "SPEED (0D)"
@@ -132,7 +133,7 @@ fun RealTimeTelemetryChart(
 
                 val chipBg = when {
                     isSelected -> CyberCyan.copy(alpha = 0.22f)
-                    !isSupported -> CarbonDark.copy(alpha = 0.45f)
+                    supportKnown && !isSupported -> CarbonDark.copy(alpha = 0.45f)
                     else -> CarbonDark.copy(alpha = 0.75f)
                 }
                 val chipBorder = when {
@@ -152,10 +153,14 @@ fun RealTimeTelemetryChart(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = if (isSupported) shortLabel else "$shortLabel (UNSUP)",
+                        text = when {
+                            !supportKnown -> "$shortLabel (?)"
+                            isSupported -> shortLabel
+                            else -> "$shortLabel (UNSUP)"
+                        },
                         color = when {
                             isSelected -> CyberCyan
-                            !isSupported -> TextMutedDark.copy(alpha = 0.55f)
+                            supportKnown && !isSupported -> TextMutedDark.copy(alpha = 0.55f)
                             else -> TextPrimaryDark
                         },
                         fontSize = 11.sp,
@@ -214,7 +219,7 @@ fun RealTimeTelemetryChart(
             contentAlignment = Alignment.Center
         ) {
             when {
-                channel != null && !channel.isSupportedByEcu -> {
+                channel != null && channel.supportKnown && !channel.isSupportedByEcu -> {
                     Text(
                         text = stringResource(R.string.realtime_chart_unsupported, selectedPidHex),
                         color = TextMutedDark,
@@ -285,7 +290,7 @@ fun RealTimeTelemetryChart(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "ECU: ${channel?.latest?.sourceEcuId?.ifBlank { "7E8" } ?: "---"} • ${
+                text = "ECU: ${channel?.latest?.sourceEcuId?.ifBlank { "UNKNOWN" } ?: "---"} • ${
                     formatTelemetryTimestamp(channel?.latest?.timestamp ?: snapshot.timestamp)
                 }",
                 color = TextMutedDark.copy(alpha = 0.85f),

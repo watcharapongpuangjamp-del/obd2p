@@ -19,8 +19,9 @@ data class TelemetryChannelState(
     val latest: TelemetryPoint,
     val history: List<TelemetryPoint> = emptyList(),
     val tier: PidPollingTier = PidPollingTier.MEDIUM,
-    val isSupportedByEcu: Boolean = true,
-    val effectiveHz: Double = 0.0
+    val isSupportedByEcu: Boolean = false,
+    val effectiveHz: Double = 0.0,
+    val supportKnown: Boolean = false
 )
 
 /**

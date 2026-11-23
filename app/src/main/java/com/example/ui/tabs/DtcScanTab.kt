@@ -242,7 +242,7 @@ fun DtcScanTab(
                 )
             }
 
-            if (!uiState.isDtcScanning && result.totalFaults == 0 && result.timestamp > 0) {
+            if (!uiState.isDtcScanning && result.status == com.example.core.model.ScanStatus.COMPLETED && result.totalFaults == 0 && result.timestamp > 0) {
                 item {
                     Box(
                         modifier = Modifier

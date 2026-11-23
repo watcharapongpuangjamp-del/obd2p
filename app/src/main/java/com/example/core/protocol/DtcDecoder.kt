@@ -63,7 +63,7 @@ object DtcDecoder {
                 val dtc = DtcKnowledgeBase.toDtcCodeModel(
                     code = codeStr,
                     type = type,
-                    ecuId = response.ecuHeader.ifBlank { "7E8" },
+                    ecuId = response.ecuHeader.ifBlank { "UNKNOWN" },
                     rawHex = rawHex,
                     evidenceRef = linkedEvidenceRef
                 )
@@ -100,9 +100,10 @@ object DtcDecoder {
         val payload = response.cleanPayload.trim()
         val raw = response.rawResponse
         val bytes = response.dataBytes
-        val ecuHeader = response.ecuHeader.ifBlank { "7E8" }
-        val timestamp = System.currentTimeMillis()
-        val sha256 = calculateHash("04:$raw:$timestamp")
+        val ecuHeader = response.ecuHeader.ifBlank { "UNKNOWN" }
+        val timestamp = response.rawTxRx?.timestamp ?: System.currentTimeMillis()
+        val rawEvidence = response.rawTxRx?.rawBytes?.takeIf { it.isNotEmpty() } ?: raw.toByteArray(Charsets.US_ASCII)
+        val sha256 = calculateHash(rawEvidence)
 
         // 1. Check for Negative Response Code (NRC): 7F 04 <NRC>
         val nrcIndex = bytes.indexOf(0x7F)
@@ -133,12 +134,9 @@ object DtcDecoder {
             )
         }
 
-        // 2. Check for Positive Response: 0x44 (Service 04 Positive Response) or "44" / "OK"
+        // 2. Only a decoded OBD positive response (0x44) confirms Service 04 acceptance.
         val has44Byte = bytes.contains(0x44)
-        val has44Token = payload.split("\\s+".toRegex()).any { it.equals("44", ignoreCase = true) }
-        val isOkAck = response.type == ElmResponseType.OK_RESPONSE || payload.equals("OK", ignoreCase = true)
-
-        if (has44Byte || has44Token || isOkAck) {
+        if (response.type == ElmResponseType.VALID_DATA && has44Byte) {
             return DtcClearResult(
                 status = DtcClearStatus.SUCCESS,
                 commandTx = "04",
@@ -146,8 +144,8 @@ object DtcDecoder {
                 cleanPayload = payload,
                 rawHex = if (bytes.isNotEmpty()) bytes.joinToString(" ") { String.format("%02X", it) } else "44",
                 ecuHeader = ecuHeader,
-                confirmationMessageThai = "กล่อง ECU ตอบรับคำสั่งล้างรหัสสำเร็จ (Positive Response: 44) รีเซ็ตไฟ Check Engine (MIL) และหน่วยความจำ DTC เรียบร้อยแล้ว",
-                confirmationMessageEnglish = "ECU acknowledged Service 04 with positive response (44). All DTCs and Freeze Frame memory cleared successfully.",
+                confirmationMessageThai = "กล่อง ECU ตอบรับคำสั่ง Service 04 (Positive Response: 44) แล้ว ควรสแกนใหม่เพื่อยืนยันสถานะรหัสของแต่ละกล่อง",
+                confirmationMessageEnglish = "ECU returned the positive response (44) to Service 04. Re-scan each responding ECU to verify the resulting DTC state.",
                 errorMessageThai = null,
                 errorMessageEnglish = null,
                 negativeResponseCode = null,
@@ -222,9 +220,9 @@ object DtcDecoder {
         }
     }
 
-    private fun calculateHash(input: String): String {
+    private fun calculateHash(input: ByteArray): String {
         val md = MessageDigest.getInstance("SHA-256")
-        val digest = md.digest(input.toByteArray())
+        val digest = md.digest(input)
         return digest.fold("") { str, it -> str + "%02x".format(it) }
     }
 }

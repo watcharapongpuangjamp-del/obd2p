@@ -15,7 +15,8 @@ enum class DataProvenance {
     USER_ENTERED,
     HISTORICAL,
     ESTIMATED,
-    AI_INFERRED
+    AI_INFERRED,
+    UNKNOWN
 }
 
 data class TelemetryPoint(
@@ -29,7 +30,7 @@ data class TelemetryPoint(
     val quality: DataQuality = DataQuality.VALID,
     val provenance: DataProvenance = DataProvenance.REAL_HARDWARE,
     val sourcePid: String,
-    val sourceEcuId: String = "7E8",
+    val sourceEcuId: String = "UNKNOWN",
     val latencyMs: Long = 0L,
     val rawHexResponse: String = "",
     val evidenceRefId: String = ""

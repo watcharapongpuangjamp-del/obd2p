@@ -30,44 +30,58 @@ class Elm327Driver(
     private val ioMutex = Mutex()
 
     override fun getProvenance(): DataProvenance {
-        val st = transport.state.value
-        return if (st is TransportState.Connected) {
-            st.provenance
-        } else {
-            DataProvenance.REAL_HARDWARE
+        val state = transport.state.value
+        return when (state) {
+            is TransportState.Connected -> state.provenance
+            else -> DataProvenance.UNKNOWN
         }
     }
 
     override suspend fun initializeAdapter(): Boolean {
         _isInitialized.value = false
-        if (!transport.isConnected()) {
-            val connected = transport.connect()
-            if (!connected) return false
-        }
+        if (!transport.isConnected() && !transport.connect()) return false
+        if (transport.state.value !is TransportState.Connected) return false
 
-        // Standard ELM327 initialization sequence
         val resetResp = sendAtCommand("ATZ")
-        if (resetResp.type == ElmResponseType.TIMEOUT || resetResp.type == ElmResponseType.UNKNOWN_ERROR) {
-            return false
-        }
-        if (resetResp.cleanPayload.isNotBlank() && !resetResp.cleanPayload.equals("NO DATA", ignoreCase = true)) {
+        if (resetResp.type in setOf(
+                ElmResponseType.TIMEOUT,
+                ElmResponseType.UNKNOWN_ERROR,
+                ElmResponseType.UNABLE_TO_CONNECT,
+                ElmResponseType.BUS_INIT_ERROR
+            )
+        ) return false
+
+        if (resetResp.cleanPayload.isNotBlank() &&
+            !resetResp.cleanPayload.equals("NO DATA", ignoreCase = true)
+        ) {
             _adapterVersion.value = resetResp.cleanPayload
         }
 
-        sendAtCommand("ATE0") // Echo Off
-        sendAtCommand("ATL0") // Linefeed Off
-        sendAtCommand("ATS1") // Spaces On for deterministic CAN byte framing
-        sendAtCommand("ATH1") // Headers On (Crucial for ECU Discovery: 7E8, 7E9, etc.)
-        sendAtCommand("ATSP0") // Auto Protocol Select
-
-        val dpResp = sendAtCommand("ATDP") // Describe Protocol
-        if (dpResp.cleanPayload.isNotBlank() && dpResp.type != ElmResponseType.NO_DATA) {
-            _detectedProtocol.value = dpResp.cleanPayload.removePrefix("AUTO,").trim()
+        // Configuration is accepted only when the adapter explicitly answers OK.
+        val requiredCommands = listOf("ATE0", "ATL0", "ATS1", "ATH1", "ATSP0")
+        for (command in requiredCommands) {
+            val response = sendAtCommand(command)
+            if (response.type != ElmResponseType.OK_RESPONSE ||
+                !response.cleanPayload.equals("OK", ignoreCase = true)
+            ) {
+                return false
+            }
         }
 
-        val vResp = readBatteryVoltage()
-        if (vResp.cleanPayload.isNotBlank() && vResp.cleanPayload.contains("V", ignoreCase = true)) {
-            _batteryVoltage.value = vResp.cleanPayload
+        val protocolResponse = sendAtCommand("ATDP")
+        if (protocolResponse.type != ElmResponseType.OK_RESPONSE ||
+            protocolResponse.cleanPayload.isBlank() ||
+            protocolResponse.cleanPayload.equals("?", ignoreCase = true)
+        ) {
+            return false
+        }
+        _detectedProtocol.value = protocolResponse.cleanPayload.removePrefix("AUTO,").trim()
+
+        val voltageResponse = readBatteryVoltage()
+        if (voltageResponse.type == ElmResponseType.VALID_DATA ||
+            voltageResponse.cleanPayload.contains("V", ignoreCase = true)
+        ) {
+            _batteryVoltage.value = voltageResponse.cleanPayload
         }
 
         _isInitialized.value = true
@@ -82,6 +96,16 @@ class Elm327Driver(
     }
 
     override suspend fun queryPid(service: String, pid: String): ElmResponse = ioMutex.withLock {
+        if (!transport.isConnected() || !_isInitialized.value) {
+            return@withLock ElmResponse(
+                type = ElmResponseType.UNABLE_TO_CONNECT,
+                rawResponse = "",
+                cleanPayload = "NOT CONNECTED",
+                quality = DataQuality.UNAVAILABLE,
+                provenance = DataProvenance.UNKNOWN,
+                errorMessage = "ELM327 adapter is not connected and initialized"
+            )
+        }
         val cmd = "${service.trim().uppercase()}${pid.trim().uppercase()}"
         val txRx = transport.sendAndReceive(cmd, 3500L)
         return parseResponse(cmd, txRx.responseRx, txRx.latencyMs, txRx.quality, txRx.provenance, txRx)
@@ -97,6 +121,16 @@ class Elm327Driver(
     }
 
     override suspend fun clearTroubleCodes(): ElmResponse = ioMutex.withLock {
+        if (!transport.isConnected() || !_isInitialized.value) {
+            return@withLock ElmResponse(
+                type = ElmResponseType.UNABLE_TO_CONNECT,
+                rawResponse = "",
+                cleanPayload = "NOT CONNECTED",
+                quality = DataQuality.UNAVAILABLE,
+                provenance = DataProvenance.UNKNOWN,
+                errorMessage = "ELM327 adapter is not connected and initialized"
+            )
+        }
         val txRx = transport.sendAndReceive("04", 4000L)
         return parseResponse("04", txRx.responseRx, txRx.latencyMs, txRx.quality, txRx.provenance, txRx)
     }
@@ -109,7 +143,6 @@ class Elm327Driver(
         provenance: DataProvenance,
         rawTxRx: RawTxRxResult? = null
     ): ElmResponse {
-        // Strip carriage returns, line feeds, '>' prompt, and transient SEARCHING... status
         val lines = raw
             .replace("\r", "\n")
             .replace(">", "")
@@ -132,16 +165,16 @@ class Elm327Driver(
             )
         }
 
-        if (sanitized.startsWith("ERROR:", ignoreCase = true)) {
+        if (sanitized.startsWith("ERROR:", ignoreCase = true) || sanitized == "?") {
             return ElmResponse(
                 type = ElmResponseType.UNKNOWN_ERROR,
                 rawResponse = raw,
                 cleanPayload = sanitized,
                 latencyMs = latencyMs,
-                quality = DataQuality.UNAVAILABLE,
+                quality = DataQuality.INVALID,
                 provenance = provenance,
                 rawTxRx = rawTxRx,
-                errorMessage = sanitized
+                errorMessage = sanitized.ifBlank { "Unknown ELM327 error" }
             )
         }
 
@@ -229,40 +262,32 @@ class Elm327Driver(
                 errorMessage = "ELM327 RX buffer overrun"
             )
         }
-        if (sanitized == "?") {
-            return ElmResponse(
-                type = ElmResponseType.UNKNOWN_ERROR,
-                rawResponse = raw,
-                cleanPayload = "?",
-                latencyMs = latencyMs,
-                quality = DataQuality.INVALID,
-                provenance = provenance,
-                rawTxRx = rawTxRx,
-                errorMessage = "Unrecognized ELM327 command ($cmd)"
-            )
-        }
 
-        if (sanitized.equals("OK", ignoreCase = true) || cmd.startsWith("AT")) {
+        if (cmd.startsWith("AT")) {
+            val isOk = when (cmd) {
+                "ATZ", "ATDP" -> sanitized.isNotBlank()
+                "ATRV" -> sanitized.matches(Regex("""\d+(\.\d+)?V""", RegexOption.IGNORE_CASE))
+                else -> sanitized.equals("OK", ignoreCase = true)
+            }
             return ElmResponse(
-                type = ElmResponseType.OK_RESPONSE,
+                type = if (isOk) ElmResponseType.OK_RESPONSE else ElmResponseType.UNKNOWN_ERROR,
                 rawResponse = raw,
                 cleanPayload = sanitized,
                 latencyMs = latencyMs,
-                quality = quality,
+                quality = if (isOk) quality else DataQuality.INVALID,
                 provenance = provenance,
-                rawTxRx = rawTxRx
+                rawTxRx = rawTxRx,
+                errorMessage = if (isOk) null else "Unexpected response to $cmd: $sanitized"
             )
         }
 
-        // Parse CAN hex bytes & ECU Header from the first valid line (supports spaced & spaceless hex)
-        val firstFrameLine = lines.firstOrNull { !it.startsWith("SEARCHING", ignoreCase = true) } ?: sanitized
+        val firstFrameLine = lines.firstOrNull() ?: sanitized
         val (ecuHeader, hexBytes) = parseCanFrameTokens(firstFrameLine)
-
         return ElmResponse(
             type = if (hexBytes.isNotEmpty()) ElmResponseType.VALID_DATA else ElmResponseType.UNKNOWN_ERROR,
             rawResponse = raw,
             cleanPayload = sanitized,
-            ecuHeader = ecuHeader.ifBlank { "7E8" },
+            ecuHeader = ecuHeader,
             dataBytes = hexBytes,
             latencyMs = latencyMs,
             quality = if (hexBytes.isNotEmpty()) quality else DataQuality.INVALID,
@@ -273,22 +298,18 @@ class Elm327Driver(
     }
 
     private fun parseCanFrameTokens(frameLine: String): Pair<String, List<Int>> {
-        // Strip optional ISO-TP multi-frame prefix like "0:" or "1:"
         val cleaned = frameLine.replace(Regex("\\b[0-9A-Fa-f]:"), " ").trim()
         val tokens = cleaned.split("\\s+".toRegex()).filter { it.isNotBlank() }
         if (tokens.isEmpty()) return "" to emptyList()
 
-        // Case A: Spaceless single token (e.g. "7E804410C1AF8" or "410C1AF8")
         if (tokens.size == 1 && tokens[0].length > 2 && tokens[0].all { isHexChar(it) }) {
             val single = tokens[0]
             var header = ""
             val payloadHex = when {
-                // 11-bit CAN header (3 chars, e.g. 7E8) followed by even-length hex bytes
                 single.length >= 5 && single.length % 2 == 1 -> {
                     header = single.substring(0, 3)
                     single.substring(3)
                 }
-                // 29-bit CAN header (8 chars, e.g. 18DAF110) followed by even-length hex bytes
                 single.length >= 10 && single.startsWith("18DA", ignoreCase = true) -> {
                     header = single.substring(0, 8)
                     single.substring(8)
@@ -299,7 +320,6 @@ class Elm327Driver(
             return header to bytes
         }
 
-        // Case B: Space-separated hex tokens (e.g. "7E8 04 41 0C 1A F8")
         var ecuHeader = ""
         val payloadTokens = if ((tokens[0].length == 3 || tokens[0].length == 8) && tokens[0].all { isHexChar(it) }) {
             ecuHeader = tokens[0]
@@ -316,11 +336,9 @@ class Elm327Driver(
                 token.chunked(2).mapNotNull { it.toIntOrNull(16) }.forEach { hexBytes.add(it) }
             }
         }
-
         return ecuHeader to hexBytes
     }
 
-    private fun isHexChar(c: Char): Boolean {
-        return c in '0'..'9' || c in 'a'..'f' || c in 'A'..'F'
-    }
+    private fun isHexChar(c: Char): Boolean =
+        c in '0'..'9' || c in 'a'..'f' || c in 'A'..'F'
 }

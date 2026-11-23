@@ -80,6 +80,12 @@ class AdaptivePidScheduler(
         if (_isRunning.value) {
             stopPolling()
         }
+        // Polling is a hardware operation: never start against an uninitialized
+        // adapter or a transport whose provenance is unknown/disconnected.
+        if (!driver.isInitialized.value || driver.getProvenance() == com.example.core.model.DataProvenance.UNKNOWN) {
+            _isRunning.value = false
+            return
+        }
         _isRunning.value = true
         loopCounter = 0
 
@@ -95,6 +101,10 @@ class AdaptivePidScheduler(
             val activeSlow = filterSupported(slowPids, supportedPids)
 
             while (isActive && _isRunning.value) {
+                if (!driver.isInitialized.value || driver.getProvenance() == com.example.core.model.DataProvenance.UNKNOWN) {
+                    stopPolling()
+                    break
+                }
                 val cycleStart = System.currentTimeMillis()
                 val pidsToPollThisTurn = mutableListOf<String>()
 
@@ -166,7 +176,8 @@ class AdaptivePidScheduler(
             history = _telemetryHistory.value[point.sourcePid].orEmpty(),
             tier = tier,
             isSupportedByEcu = point.quality != DataQuality.UNSUPPORTED,
-            effectiveHz = _pollingFrequencyHz.value / tier.cycleModulo
+            effectiveHz = _pollingFrequencyHz.value / tier.cycleModulo,
+            supportKnown = false
         )
         _validatedSnapshot.value = currentSnap.copy(
             timestamp = System.currentTimeMillis(),
@@ -262,8 +273,9 @@ class AdaptivePidScheduler(
                 latest = pt,
                 history = currentHist[pid].orEmpty(),
                 tier = tier,
-                isSupportedByEcu = supportedPids.isEmpty() || supportedPids.contains(pid),
-                effectiveHz = if (_isRunning.value) hz / tier.cycleModulo else 0.0
+                isSupportedByEcu = supportedPids.contains(pid),
+                effectiveHz = if (_isRunning.value) hz / tier.cycleModulo else 0.0,
+                supportKnown = supportedPids.isNotEmpty()
             )
         }
         _validatedSnapshot.value = ValidatedDiagnosticSnapshot(
