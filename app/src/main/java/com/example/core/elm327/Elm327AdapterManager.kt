@@ -83,6 +83,7 @@ interface IElm327AdapterManager {
     fun requiredBluetoothPermissions(): Array<String>
     fun requestUsbPermission(deviceId: Int): Boolean
     suspend fun connect(type: AdapterType, targetId: String? = null, baudRate: Int = 38400): Boolean
+    suspend fun reconnect(): Boolean
     suspend fun disconnect()
     suspend fun requestStandardPid(pidHex: String): StandardPidResult
     suspend fun requestStandardPids(pidHexList: List<String>): Map<String, StandardPidResult>
@@ -266,18 +267,10 @@ class Elm327AdapterManager(
     }
 
     override fun requestUsbPermission(deviceId: Int): Boolean {
-        val ctx = context ?: return false
-        val usbManager = ctx.getSystemService(Context.USB_SERVICE) as? UsbManager ?: return false
-        val device = usbManager.deviceList.values.firstOrNull { it.deviceId == deviceId } ?: return false
-        if (usbManager.hasPermission(device)) return true
-
-        val intent = Intent(ACTION_USB_PERMISSION).apply {
-            setPackage(ctx.packageName)
+        val usbTr = usbTransport
+        if (usbTr != null) {
+            return usbTr.requestPermissionForDevice(deviceId)
         }
-        val flags = PendingIntent.FLAG_UPDATE_CURRENT or
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0
-        val pendingIntent = PendingIntent.getBroadcast(ctx, deviceId, intent, flags)
-        usbManager.requestPermission(device, pendingIntent)
         return false
     }
 
@@ -371,9 +364,10 @@ class Elm327AdapterManager(
                 if (parsedId != null) {
                     val usbDevice = usbTr.getAvailableDevices().firstOrNull { it.deviceId == parsedId }
                     if (usbDevice != null && !usbTr.hasPermission(usbDevice)) {
-                        requestUsbPermission(parsedId)
-                        _transportState.value = TransportState.Error(
-                            "Requesting USB permission for ${usbDevice.productName ?: usbDevice.deviceName}..."
+                        usbTr.requestPermissionForDevice(parsedId)
+                        _transportState.value = TransportState.PermissionRequired(
+                            deviceName = usbDevice.productName ?: UsbSerialTransport.identifyChipset(usbDevice.vendorId),
+                            deviceId = parsedId
                         )
                         return false
                     }
@@ -403,6 +397,19 @@ class Elm327AdapterManager(
         _activeDevice.value = matchingDevice
 
         // Query ECU supported PIDs via Service 01 PIDs 00, 20, 40
+        querySupportedPids()
+        return true
+    }
+
+    override suspend fun reconnect(): Boolean {
+        val reconnected = _activeTransport.reconnect()
+        if (!reconnected) return false
+        val initialized = _driver.initializeAdapter()
+        if (!initialized) return false
+
+        _adapterVersion.value = _driver.adapterVersion.value
+        _detectedProtocol.value = _driver.detectedProtocol.value
+        _batteryVoltage.value = _driver.batteryVoltage.value
         querySupportedPids()
         return true
     }

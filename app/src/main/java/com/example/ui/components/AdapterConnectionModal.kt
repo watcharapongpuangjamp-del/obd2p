@@ -86,7 +86,10 @@ fun AdapterConnectionBar(
             "$modePrefix • ${state.deviceName}" to NeonEmerald
         }
         is TransportState.Connecting -> "CONNECTING • ${state.deviceName}" to HighEnergyAmber
-        is TransportState.Error -> "LINK ERROR" to CrimsonAlert
+        is TransportState.Reconnecting -> "RECONNECTING (${state.attempt}/${state.maxAttempts})" to HighEnergyAmber
+        is TransportState.PermissionRequired -> "USB PERMIT • ${state.deviceName}" to HighEnergyAmber
+        is TransportState.Timeout -> "TIMEOUT • ${state.commandTx}" to HighEnergyAmber
+        is TransportState.Error -> "ERROR • ${state.failureKind.name}" to CrimsonAlert
         TransportState.Disconnected -> "DISCONNECTED" to TextMutedDark
     }
 
@@ -174,6 +177,7 @@ fun AdapterConnectionDialog(
     onRequestBluetoothPermissions: () -> Unit,
     onRequestUsbPermission: (Int) -> Unit,
     onConnectAdapter: (AdapterType, String?) -> Unit,
+    onReconnect: () -> Unit = {},
     onDisconnect: () -> Unit,
     onRequestStandardPid: (String) -> Unit
 ) {
@@ -239,7 +243,10 @@ fun AdapterConnectionDialog(
                 // Transport Status Banner
                 val statusBannerColor = when (uiState.transportState) {
                     is TransportState.Connected -> NeonEmerald
-                    is TransportState.Connecting -> HighEnergyAmber
+                    is TransportState.Connecting,
+                    is TransportState.Reconnecting,
+                    is TransportState.PermissionRequired,
+                    is TransportState.Timeout -> HighEnergyAmber
                     is TransportState.Error -> CrimsonAlert
                     TransportState.Disconnected -> TextMutedDark
                 }
@@ -258,9 +265,12 @@ fun AdapterConnectionDialog(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             val title = when (val st = uiState.transportState) {
-                                is TransportState.Connected -> "Connected: ${st.deviceName}"
+                                is TransportState.Connected -> "Connected: ${st.deviceName} (${st.baudRate} bps)"
                                 is TransportState.Connecting -> "Connecting to ${st.deviceName}..."
-                                is TransportState.Error -> st.message
+                                is TransportState.Reconnecting -> "Reconnecting ${st.deviceName} (${st.attempt}/${st.maxAttempts})..."
+                                is TransportState.PermissionRequired -> st.message
+                                is TransportState.Timeout -> st.message
+                                is TransportState.Error -> "${st.failureKind.name}: ${st.message}"
                                 TransportState.Disconnected -> "No active ELM327 session"
                             }
                             Text(
@@ -276,26 +286,63 @@ fun AdapterConnectionDialog(
                                 fontFamily = FontFamily.Monospace
                             )
                         }
-                        if (uiState.transportState is TransportState.Connected) {
-                            OutlinedButton(
-                                onClick = onDisconnect,
-                                modifier = Modifier
-                                    .minimumInteractiveComponentSize()
-                                    .testTag("disconnect_adapter_button")
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.adapter_disconnect),
-                                    color = CrimsonAlert,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
+                        when (val st = uiState.transportState) {
+                            is TransportState.Connected -> {
+                                OutlinedButton(
+                                    onClick = onDisconnect,
+                                    modifier = Modifier
+                                        .minimumInteractiveComponentSize()
+                                        .testTag("disconnect_adapter_button")
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.adapter_disconnect),
+                                        color = CrimsonAlert,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                            is TransportState.PermissionRequired -> {
+                                if (st.deviceId != null) {
+                                    Button(
+                                        onClick = { onRequestUsbPermission(st.deviceId) },
+                                        colors = ButtonDefaults.buttonColors(containerColor = HighEnergyAmber),
+                                        modifier = Modifier
+                                            .minimumInteractiveComponentSize()
+                                            .testTag("grant_usb_permission_button")
+                                    ) {
+                                        Text(
+                                            text = "PERMIT USB",
+                                            color = CarbonDark,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                            is TransportState.Error, is TransportState.Timeout -> {
+                                OutlinedButton(
+                                    onClick = onReconnect,
+                                    modifier = Modifier
+                                        .minimumInteractiveComponentSize()
+                                        .testTag("reconnect_adapter_button")
+                                ) {
+                                    Text(
+                                        text = "RECONNECT",
+                                        color = CyberCyan,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                            is TransportState.Connecting, is TransportState.Reconnecting -> {
+                                CircularProgressIndicator(
+                                    color = HighEnergyAmber,
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
                                 )
                             }
-                        } else if (uiState.transportState is TransportState.Connecting) {
-                            CircularProgressIndicator(
-                                color = HighEnergyAmber,
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp
-                            )
+                            TransportState.Disconnected -> Unit
                         }
                     }
                 }

@@ -52,9 +52,37 @@ class ReplayVehicleTransport(
         _state.value = TransportState.Disconnected
     }
 
+    override suspend fun reconnect(maxRetries: Int): Boolean {
+        _state.value = TransportState.Reconnecting(
+            deviceName = "ELM327 v1.5 (${vehicleProfile.model})",
+            attempt = 1,
+            maxAttempts = maxRetries.coerceAtLeast(1),
+            delayMs = 150L
+        )
+        delay(150)
+        return connect()
+    }
+
+    override suspend fun sendRawBytes(data: ByteArray): Boolean {
+        if (!isConnected()) return false
+        val cmd = String(data, Charsets.US_ASCII).trim()
+        val result = sendAndReceive(cmd, 2000L)
+        lastRawRxBytes = result.rawBytes
+        return !result.isError
+    }
+
+    override suspend fun readRawBytes(timeoutMs: Long, stopOnPrompt: Boolean): ByteArray {
+        val bytes = lastRawRxBytes
+        lastRawRxBytes = ByteArray(0)
+        return bytes
+    }
+
+    private var lastRawRxBytes: ByteArray = ByteArray(0)
+
     override fun isConnected(): Boolean = _state.value is TransportState.Connected
 
     override suspend fun sendAndReceive(command: String, timeoutMs: Long): RawTxRxResult {
+        val txTs = System.currentTimeMillis()
         val startNano = System.nanoTime()
         val cleanCmd = command.trim().uppercase()
 
@@ -65,18 +93,27 @@ class ReplayVehicleTransport(
         simTime += 0.15
 
         val responseString = generateResponseForCommand(cleanCmd)
-        val elapsedMs = (System.nanoTime() - startNano) / 1_000_000
+        val rxTs = System.currentTimeMillis()
+        val elapsedMs = ((System.nanoTime() - startNano) / 1_000_000).coerceAtLeast(1L)
+        val rxBytes = responseString.toByteArray(Charsets.US_ASCII)
+        lastRawRxBytes = rxBytes
+        val isErr = responseString.contains("ERROR") || responseString.contains("UNABLE")
 
         val result = RawTxRxResult(
             commandTx = command,
             responseRx = responseString,
             latencyMs = elapsedMs,
             isTimeout = false,
-            isError = responseString.contains("ERROR") || responseString.contains("UNABLE"),
-            rawBytes = responseString.toByteArray(Charsets.US_ASCII),
+            isError = isErr,
+            rawBytes = rxBytes,
             quality = DataQuality.VALID,
             provenance = DataProvenance.SIMULATOR,
-            timestamp = System.currentTimeMillis()
+            timestamp = rxTs,
+            txTimestamp = txTs,
+            rxTimestamp = rxTs,
+            rawTxBytes = command.toByteArray(Charsets.US_ASCII),
+            baudRate = 38400,
+            failureKind = if (isErr) TransportFailureKind.PROTOCOL_ERROR else TransportFailureKind.NONE
         )
 
         _rxEvidenceFlow.tryEmit(result)

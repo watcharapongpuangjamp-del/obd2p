@@ -129,6 +129,7 @@ class MainActivity : ComponentActivity() {
               onConnectAdapter = { type, targetId ->
                 viewModel.connectAdapter(type, targetId)
               },
+              onReconnect = { viewModel.reconnectAdapter() },
               onDisconnect = { viewModel.disconnect() },
               onRequestStandardPid = { pidHex ->
                 viewModel.requestStandardPid(pidHex)

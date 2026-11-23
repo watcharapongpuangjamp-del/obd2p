@@ -53,6 +53,12 @@ class Elm327AdapterManagerTest {
             _state.value = TransportState.Disconnected
         }
 
+        override suspend fun reconnect(maxRetries: Int): Boolean = connect()
+
+        override suspend fun sendRawBytes(data: ByteArray): Boolean = isConnected()
+
+        override suspend fun readRawBytes(timeoutMs: Long, stopOnPrompt: Boolean): ByteArray = ByteArray(0)
+
         override fun isConnected(): Boolean = _state.value is TransportState.Connected
 
         override suspend fun sendAndReceive(command: String, timeoutMs: Long): RawTxRxResult {

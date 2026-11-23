@@ -17,6 +17,7 @@ import com.example.core.model.EvidenceDirection
 import com.example.core.model.EvidenceLog
 import com.example.core.model.VehicleProfile
 import com.example.core.protocol.DtcKnowledgeBase
+import com.example.core.transport.TransportFailureKind
 import com.example.core.rules.DeterministicDiagnosticRuleEngine
 import com.example.core.rules.IDiagnosticRuleEngine
 import com.example.core.scanner.DtcScanner
@@ -234,6 +235,29 @@ class DiagnosticViewModel(application: Application) : AndroidViewModel(applicati
                     isPolling = false,
                     userNoticeMessage = "Disconnected from OBD-II Adapter"
                 )
+            }
+        }
+    }
+
+    fun reconnectAdapter() {
+        viewModelScope.launch {
+            scheduler.stopPolling()
+            val ok = adapterManager.reconnect()
+            if (ok) {
+                val driver = adapterManager.driver
+                _uiState.update {
+                    it.copy(
+                        adapterVersion = driver.adapterVersion.value,
+                        activeProtocol = driver.detectedProtocol.value,
+                        batteryVoltage = driver.batteryVoltage.value,
+                        userNoticeMessage = "Reconnected (${driver.detectedProtocol.value})"
+                    )
+                }
+                startTelemetryPolling()
+            } else {
+                _uiState.update {
+                    it.copy(userNoticeMessage = "Reconnect failed. Check USB/Bluetooth connection or permissions.")
+                }
             }
         }
     }
@@ -587,17 +611,23 @@ class DiagnosticViewModel(application: Application) : AndroidViewModel(applicati
         }
         viewModelScope.launch {
             adapterManager.rxEvidenceFlow.collect { rx ->
+                val meaningNote = if (rx.failureKind != TransportFailureKind.NONE) {
+                    "${rx.failureKind.name} (${rx.baudRate} bps)"
+                } else {
+                    "OK (${rx.baudRate} bps)"
+                }
                 val ev = EvidenceLog(
-                    id = "EVD_${System.currentTimeMillis()}_${(100..999).random()}",
+                    id = "EVD_${rx.rxTimestamp}_${(100..999).random()}",
                     sessionId = _uiState.value.activeSessionId,
-                    timestamp = rx.timestamp,
+                    timestamp = rx.rxTimestamp,
                     direction = if (rx.commandTx.isNotBlank()) EvidenceDirection.TX else EvidenceDirection.RX,
                     rawBytesHex = rx.responseRx,
                     commandText = rx.commandTx,
                     responseText = rx.responseRx,
                     latencyMs = rx.latencyMs,
                     quality = rx.quality,
-                    provenance = rx.provenance
+                    provenance = rx.provenance,
+                    parsedMeaning = meaningNote
                 )
                 val currentLogs = listOf(ev) + _uiState.value.evidenceLogs
                 _uiState.update { it.copy(evidenceLogs = currentLogs.take(200)) }
