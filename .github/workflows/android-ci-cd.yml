@@ -81,7 +81,7 @@ jobs:
 
       - name: Upload Test & Lint Reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: verification-reports
           path: |
@@ -147,7 +147,7 @@ jobs:
           (cd dist/debug && sha256sum *.apk > SHA256SUMS-debug.txt)
 
       - name: Upload Debug APK Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: thai-car-obd2-pro-debug-apk
           path: dist/debug/
@@ -250,7 +250,7 @@ jobs:
           (cd dist/release && sha256sum *.apk *.aab > SHA256SUMS-release.txt)
 
       - name: Upload Release Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: thai-car-obd2-pro-release-artifacts
           path: dist/release/
