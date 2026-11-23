@@ -115,8 +115,9 @@ class DtcClearServiceTest {
 
         // 3. Verify scan result state in scanner
         val stateAfterClear = scanner.scanResult.value
-        assertEquals(0, stateAfterClear.confirmedCodes.size)
-        assertEquals(0, stateAfterClear.pendingCodes.size)
+        assertEquals(initialScan.confirmedCodes.size, stateAfterClear.confirmedCodes.size)
+        assertEquals(initialScan.pendingCodes.size, stateAfterClear.pendingCodes.size)
+        assertEquals(initialScan.permanentCodes.size, stateAfterClear.permanentCodes.size)
         assertTrue(stateAfterClear.evidenceRefs.contains(clearResult.evidenceRef))
     }
 }
