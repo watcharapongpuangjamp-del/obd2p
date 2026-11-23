@@ -20,7 +20,7 @@ data class DtcClearResult(
     val responseRx: String = "",
     val cleanPayload: String = "",
     val rawHex: String = "",
-    val ecuHeader: String = "7E8",
+    val ecuHeader: String = "UNKNOWN",
     val confirmationMessageThai: String = "",
     val confirmationMessageEnglish: String = "",
     val errorMessageThai: String? = null,
