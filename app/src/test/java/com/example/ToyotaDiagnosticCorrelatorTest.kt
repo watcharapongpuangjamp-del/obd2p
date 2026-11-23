@@ -8,6 +8,7 @@ import com.example.core.model.DtcType
 import com.example.core.model.TelemetryPoint
 import com.example.core.toyota.ToyotaApplicabilityStatus
 import com.example.core.toyota.ToyotaDiagnosticCorrelator
+import com.example.core.toyota.ToyotaEvidenceCoverage
 import com.example.core.toyota.ToyotaManualEvidence
 import com.example.core.toyota.ToyotaVehicleApplication
 import org.junit.Assert.assertEquals
@@ -48,7 +49,7 @@ class ToyotaDiagnosticCorrelatorTest {
         ).single()
         assertEquals(listOf("06", "07"), result.relatedPids)
         assertEquals(listOf("EVD_06", "EVD_07"), result.telemetryEvidenceRefs)
-        assertEquals("MEDIUM", result.confidence.name)
+        assertEquals(ToyotaEvidenceCoverage.DTC_PLUS_TELEMETRY, result.evidenceCoverage)
     }
 
     @Test fun staleTelemetryIsNotUsed() {
@@ -56,7 +57,7 @@ class ToyotaDiagnosticCorrelatorTest {
             listOf(dtc("P0171")), mapOf("06" to point("06", timestamp = now - 20_000)), vehicle
         ).single()
         assertTrue(result.telemetryEvidenceRefs.isEmpty())
-        assertEquals("LOW", result.confidence.name)
+        assertEquals(ToyotaEvidenceCoverage.DTC_ONLY, result.evidenceCoverage)
     }
 
     @Test fun estimatedTelemetryIsNotUsed() {
@@ -85,6 +86,14 @@ class ToyotaDiagnosticCorrelatorTest {
     @Test fun mismatchedEngineManualEvidenceIsExcluded() {
         val result = ToyotaDiagnosticCorrelator(clock = { now }).correlate(
             listOf(dtc("P0087")), emptyMap(), vehicle, listOf(manual(engine = "2GD-FTV"))
+        ).single()
+        assertTrue(result.manualEvidence.isEmpty())
+    }
+
+    @Test fun invalidManualFingerprintIsRejectedFromEvidenceResults() {
+        val invalid = manual().copy(documentSha256 = "not-a-hash")
+        val result = ToyotaDiagnosticCorrelator(clock = { now }).correlate(
+            listOf(dtc("P0087")), emptyMap(), vehicle, listOf(invalid)
         ).single()
         assertTrue(result.manualEvidence.isEmpty())
     }
