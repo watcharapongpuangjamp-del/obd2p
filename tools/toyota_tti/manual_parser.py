@@ -156,6 +156,10 @@ def parse_manual(
     vehicle_context: dict,
     rights_note: str,
 ) -> dict:
+    if not manual_id.strip():
+        raise ValueError("manual_id must not be empty")
+    if not rights_note.strip():
+        raise ValueError("rights_note must not be empty")
     if not path.is_file():
         raise FileNotFoundError(f"Input document does not exist: {path}")
     if path.suffix.lower() not in SUPPORTED_SUFFIXES:
