@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://obd2p.local/schemas/toyota-tti-retrieval-1.0.0.json",
+  "title": "OBD2P Toyota TTI Retrieval Result",
+  "type": "object",
+  "required": ["schema_version", "target_vehicle", "evidence"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "target_vehicle": {"type": "object"},
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["manual_id", "document_sha256", "locator", "kind", "value", "extraction_status", "applicability", "limitations"],
+        "properties": {
+          "manual_id": {"type": "string", "minLength": 1},
+          "source_url": {"type": "string"},
+          "document_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "locator": {"type": "string"},
+          "section": {"type": "string"},
+          "kind": {"enum": ["dtc_candidate", "measurement_candidate"]},
+          "value": {"type": "string"},
+          "excerpt": {"type": "string", "maxLength": 280},
+          "extraction_status": {"const": "candidate_unverified"},
+          "applicability": {
+            "type": "object",
+            "required": ["status", "matched_fields", "unknown_fields", "mismatched_fields", "note"],
+            "properties": {
+              "status": {"enum": ["candidate_match", "unconfirmed", "not_applicable"]},
+              "matched_fields": {"type": "array", "items": {"type": "string"}},
+              "unknown_fields": {"type": "array", "items": {"type": "string"}},
+              "mismatched_fields": {"type": "array", "items": {"type": "string"}},
+              "note": {"type": "string"}
+            }
+          },
+          "limitations": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "manual_candidates": {"type": "array"}
+  }
+}
