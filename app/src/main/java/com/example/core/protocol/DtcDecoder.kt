@@ -100,7 +100,7 @@ object DtcDecoder {
         val payload = response.cleanPayload.trim()
         val raw = response.rawResponse
         val bytes = response.dataBytes
-        val ecuHeader = response.ecuHeader
+        val ecuHeader = response.ecuHeader.ifBlank { "UNKNOWN" }
         val timestamp = response.rawTxRx?.timestamp ?: System.currentTimeMillis()
         val rawEvidence = response.rawTxRx?.rawBytes?.takeIf { it.isNotEmpty() } ?: raw.toByteArray(Charsets.US_ASCII)
         val sha256 = calculateHash(rawEvidence)
