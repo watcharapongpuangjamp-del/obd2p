@@ -131,11 +131,9 @@ class DtcScanner : IDtcScanner {
 
         if (result.isSuccess) {
             _scanResult.value = _scanResult.value.copy(
-                // Service 04 does not erase Permanent DTCs. Do not claim the whole
-                // DTC scan is current; a fresh scan is required to verify the ECU.
-                confirmedCodes = emptyList(),
-                pendingCodes = emptyList(),
-                permanentCodes = _scanResult.value.permanentCodes,
+                // A positive response proves ECU acknowledgement, not that every
+                // module's stored codes are gone. Preserve the previous scan until
+                // a fresh Service 03/07/0A read verifies the post-clear state.
                 evidenceRefs = _scanResult.value.evidenceRefs + evidenceId,
                 timestamp = System.currentTimeMillis()
             )
